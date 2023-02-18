@@ -1,0 +1,7 @@
+libmbu(r)s
+Copyright 2023 Lexi Robinson
+
+This project was inspired by and in some cases (which are marked) uses code
+converted from the rSCADA/libmbus project by Raditex Control AB which is
+released under the BSD 3-Clause License
+Copyright (c) 2010-2012, Raditex Control AB
