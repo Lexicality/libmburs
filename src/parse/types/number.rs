@@ -15,21 +15,23 @@
  */
 use crate::parse::dib::RawDataType;
 use crate::parse::error::{ParseError, Result};
+use crate::parse::vib::ValueType;
 use crate::parse::Datagram;
 
 use super::{DataType, ParseResult};
 
-pub fn parse_number(dt: RawDataType, dg: &mut Datagram) -> ParseResult {
-    if let RawDataType::BCD(len) = dt {
-        decode_bcd(dg.take(len)?)
-    } else if let RawDataType::BinarySigned(len) = dt {
-        decode_binary_signed(dg.take(len)?)
-    } else if let RawDataType::BinaryUnsigned(len) = dt {
-        decode_binary_unsigned(dg.take(len)?)
-    } else if let RawDataType::Real = dt {
-        decode_real(dg.take(4)?)
-    } else {
-        Err(ParseError::DataTypeMismatch)
+pub fn parse_number(dt: RawDataType, vt: ValueType, dg: &mut Datagram) -> ParseResult {
+    match dt {
+        RawDataType::BCD(len) => decode_bcd(dg.take(len)?),
+        RawDataType::Real => decode_real(dg.take(4)?),
+        RawDataType::Binary(len) => {
+            if vt.is_unsigned() {
+                decode_binary_unsigned(dg.take(len)?)
+            } else {
+                decode_binary_signed(dg.take(len)?)
+            }
+        }
+        _ => Err(ParseError::DataTypeMismatch),
     }
 }
 

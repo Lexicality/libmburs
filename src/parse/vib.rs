@@ -133,3 +133,10 @@ pub enum ValueType {
     TypeMDuration,
     // TODO: But wait there's more
 }
+
+impl ValueType {
+    pub fn is_unsigned(&self) -> bool {
+        // TODO
+        false
+    }
+}

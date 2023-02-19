@@ -34,8 +34,7 @@ const DIF_FUNCTION_ERR: u8 = 3 << 4;
 
 pub enum RawDataType {
     None,
-    BinarySigned(usize),
-    BinaryUnsigned(usize),
+    Binary(usize),
     Real,
     BCD(usize),
     LVAR,
@@ -114,9 +113,9 @@ fn parse_raw_type(dif: u8) -> Result<RawDataType> {
     let data = dif & DIF_DATA;
     match data {
         0 => Ok(RawDataType::None),
-        0b0001 | 0b0010 | 0b0011 | 0b0100 | 0b0110 => Ok(RawDataType::BinarySigned(data as usize)),
+        0b0001 | 0b0010 | 0b0011 | 0b0100 | 0b0110 => Ok(RawDataType::Binary(data as usize)),
         0b0101 => Ok(RawDataType::Real),
-        0b0111 => Ok(RawDataType::BinarySigned(8)),
+        0b0111 => Ok(RawDataType::Binary(8)),
         0b1001 | 0b1010 | 0b1011 | 0b1100 | 0b1110 => {
             Ok(RawDataType::BCD((data - 0b1000) as usize))
         }
