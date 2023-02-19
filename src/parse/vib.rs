@@ -130,7 +130,7 @@ pub enum ValueType {
     TypeGDate,
     TypeIDateTime,
     TypeJTime,
-    TypeMDuration,
+    TypeMDatetime,
     // TODO: But wait there's more
 }
 
@@ -138,5 +138,16 @@ impl ValueType {
     pub fn is_unsigned(&self) -> bool {
         // TODO
         false
+    }
+
+    pub fn is_date(&self) -> bool {
+        match self {
+            Self::TypeFDateTime
+            | Self::TypeGDate
+            | Self::TypeIDateTime
+            | Self::TypeJTime
+            | Self::TypeMDatetime => true,
+            _ => false,
+        }
     }
 }

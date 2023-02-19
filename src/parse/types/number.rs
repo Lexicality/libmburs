@@ -25,7 +25,9 @@ pub fn parse_number(dt: RawDataType, vt: ValueType, dg: &mut Datagram) -> ParseR
         RawDataType::BCD(len) => decode_bcd(dg.take(len)?),
         RawDataType::Real => decode_real(dg.take(4)?),
         RawDataType::Binary(len) => {
-            if vt.is_unsigned() {
+            if vt.is_date() {
+                super::date::parse_datetime(dt, vt, dg)
+            } else if vt.is_unsigned() {
                 decode_binary_unsigned(dg.take(len)?)
             } else {
                 decode_binary_signed(dg.take(len)?)

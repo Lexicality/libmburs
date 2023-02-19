@@ -32,6 +32,7 @@ pub enum DataType {
     Date(date::TypeGDate),          // type G
     Time(date::TypeJTime),          // Type J
     String(String),
+    Invalid(Vec<u8>),
     VariableLengthNumber(Vec<u8>),
     ManufacturerSpecific(Vec<u8>),
 }
