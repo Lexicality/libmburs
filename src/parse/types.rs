@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use super::error::Result;
+
 pub mod date;
 pub mod lvar;
 pub mod number;
@@ -33,3 +35,5 @@ pub enum DataType {
     VariableLengthNumber(Vec<u8>),
     ManufacturerSpecific(Vec<u8>),
 }
+
+pub type ParseResult = Result<DataType>;

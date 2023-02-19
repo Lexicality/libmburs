@@ -15,12 +15,13 @@
  */
 use encoding_rs::mem::decode_latin1;
 
-use super::DataType;
 use crate::parse::dib::RawDataType;
 use crate::parse::error::{ParseError, Result};
 use crate::parse::Datagram;
 
-pub fn parse_lvar(_dt: RawDataType, dg: &mut Datagram) -> Result<DataType> {
+use super::{DataType, ParseResult};
+
+pub fn parse_lvar(_dt: RawDataType, dg: &mut Datagram) -> ParseResult {
     let length = dg.next()?;
     match length {
         0xC0..=0xC9 => parse_positive_bcd(length - 0xC0, dg), // Positive BCD number
@@ -34,7 +35,7 @@ pub fn parse_lvar(_dt: RawDataType, dg: &mut Datagram) -> Result<DataType> {
     }
 }
 
-fn parse_binary(len: u8, dg: &mut Datagram) -> Result<DataType> {
+fn parse_binary(len: u8, dg: &mut Datagram) -> ParseResult {
     if len <= 8 {
         super::number::parse_number(RawDataType::BinarySigned(len as usize), dg)
     } else {
@@ -42,15 +43,15 @@ fn parse_binary(len: u8, dg: &mut Datagram) -> Result<DataType> {
     }
 }
 
-fn parse_string(len: u8, dg: &mut Datagram) -> Result<DataType> {
+fn parse_string(len: u8, dg: &mut Datagram) -> ParseResult {
     Ok(DataType::String(decode_string(dg.take(len as usize)?)?))
 }
 
-fn parse_positive_bcd(len: u8, dg: &mut Datagram) -> Result<DataType> {
+fn parse_positive_bcd(len: u8, dg: &mut Datagram) -> ParseResult {
     super::number::parse_number(RawDataType::BCD(len as usize), dg)
 }
 
-fn parse_negative_bcd(len: u8, dg: &mut Datagram) -> Result<DataType> {
+fn parse_negative_bcd(len: u8, dg: &mut Datagram) -> ParseResult {
     match parse_positive_bcd(len, dg)? {
         DataType::Signed(mut ret) => {
             if ret > 0 {

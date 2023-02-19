@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use super::DataType;
 use crate::parse::dib::RawDataType;
 use crate::parse::error::{ParseError, Result};
 use crate::parse::Datagram;
 
-pub fn parse_number(dt: RawDataType, dg: &mut Datagram) -> Result<DataType> {
+use super::{DataType, ParseResult};
+
+pub fn parse_number(dt: RawDataType, dg: &mut Datagram) -> ParseResult {
     if let RawDataType::BCD(len) = dt {
         decode_bcd(dg.take(len)?)
     } else if let RawDataType::BinarySigned(len) = dt {
@@ -32,7 +33,7 @@ pub fn parse_number(dt: RawDataType, dg: &mut Datagram) -> Result<DataType> {
     }
 }
 
-fn decode_bcd(mut data: Vec<u8>) -> Result<DataType> {
+fn decode_bcd(mut data: Vec<u8>) -> ParseResult {
     data.reverse();
     let last = data[0];
     let negative = last & 0xF0 == 0xF0;
@@ -63,7 +64,7 @@ fn decode_bcd_digit(mut byte: u8) -> Result<u8> {
 
 const TWOS_COMPLEMENT_MASK: u8 = 0b1000_0000;
 
-fn decode_binary_signed(mut data: Vec<u8>) -> Result<DataType> {
+fn decode_binary_signed(mut data: Vec<u8>) -> ParseResult {
     Ok(DataType::Signed(match data.len() {
         1 => i8::from_le_bytes(data.try_into().unwrap()) as i64,
         2 => i16::from_le_bytes(data.try_into().unwrap()) as i64,
@@ -83,7 +84,7 @@ fn decode_binary_signed(mut data: Vec<u8>) -> Result<DataType> {
     }))
 }
 
-fn decode_binary_unsigned(mut data: Vec<u8>) -> Result<DataType> {
+fn decode_binary_unsigned(mut data: Vec<u8>) -> ParseResult {
     Ok(DataType::Unsigned(match data.len() {
         1 => data[0] as u64,
         2 => u16::from_le_bytes(data.try_into().unwrap()) as u64,
@@ -101,7 +102,7 @@ fn decode_binary_unsigned(mut data: Vec<u8>) -> Result<DataType> {
     }))
 }
 
-fn decode_real(data: Vec<u8>) -> Result<DataType> {
+fn decode_real(data: Vec<u8>) -> ParseResult {
     Ok(DataType::Real(match data.len() {
         4 => f32::from_le_bytes(data.try_into().unwrap()),
         _ => return Err(ParseError::InvalidData("Unsupported byte count for real")),
