@@ -12,7 +12,7 @@ pub struct ValueInfoBlock {
 }
 
 pub fn parse_vib(dg: &mut Datagram) -> Result<ValueInfoBlock> {
-    let vif = dg.next()?;
+    let vif = dg.next_byte()?;
     let mut value_type = match vif {
         0x7C | 0xFC => ValueType::PlainText("".to_string()), // Plain text VIF
         0x7E | 0xFE => return Err(ParseError::UnsupportedVIF(vif)), // "Any VIF"
@@ -33,14 +33,14 @@ pub fn parse_vib(dg: &mut Datagram) -> Result<ValueInfoBlock> {
 
     // TODO: words / once the vife is over we get the vif out of the data
     if let ValueType::PlainText(_) = value_type {
-        let length = dg.next()?;
+        let length = dg.next_byte()?;
         value_type = ValueType::PlainText(decode_string(dg.take(length as usize)?)?);
     }
 
-    return Ok(ValueInfoBlock {
+    Ok(ValueInfoBlock {
         value_type,
         extra_vifes,
-    });
+    })
 }
 
 fn parse_primary_vif(vif: u8) -> Result<ValueType> {
@@ -49,25 +49,25 @@ fn parse_primary_vif(vif: u8) -> Result<ValueType> {
 }
 
 fn parse_extension_1(dg: &mut Datagram) -> Result<ValueType> {
-    let _value = dg.next()? & VIF_VALUE;
+    let _value = dg.next_byte()? & VIF_VALUE;
     todo!()
 }
 
 fn parse_extension_2(dg: &mut Datagram) -> Result<ValueType> {
-    let _value = dg.next()? & VIF_VALUE;
+    let _value = dg.next_byte()? & VIF_VALUE;
     todo!()
 }
 
 fn dump_vifes(dg: &mut Datagram) -> Result<Vec<u8>> {
     let mut ret = Vec::new();
     loop {
-        let vife = dg.next()?;
+        let vife = dg.next_byte()?;
         ret.push(vife);
         if (vife & VIF_EXTENSION) == 0 {
             break;
         }
     }
-    return Ok(ret);
+    Ok(ret)
 }
 
 pub enum DurationType {
@@ -141,13 +141,13 @@ impl ValueType {
     }
 
     pub fn is_date(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::TypeFDateTime
-            | Self::TypeGDate
-            | Self::TypeIDateTime
-            | Self::TypeJTime
-            | Self::TypeMDatetime => true,
-            _ => false,
-        }
+                | Self::TypeGDate
+                | Self::TypeIDateTime
+                | Self::TypeJTime
+                | Self::TypeMDatetime
+        )
     }
 }

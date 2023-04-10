@@ -207,7 +207,7 @@ mod binary_signed_tests {
     fn i64() {
         for i in [i64::MIN, -1, 0, 1, i64::MAX] {
             let result = decode_binary_signed(i.to_le_bytes().into());
-            assert_eq!(result, Ok(DataType::Signed(i as i64)));
+            assert_eq!(result, Ok(DataType::Signed(i)));
         }
     }
 
@@ -230,12 +230,12 @@ mod binary_signed_tests {
         for (expected, bytes) in [
             (-140737488355328, [0x00, 0x00, 0x00, 0x00, 0x00, 0x80]),
             (-1, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]),
-            (0 as i64, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+            (0_i64, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
             (1, [0x01, 0x00, 0x00, 0x00, 0x00, 0x00]),
             (140737488355327, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F]),
         ] {
             let result = decode_binary_signed(bytes.into());
-            assert_eq!(result, Ok(DataType::Signed(expected as i64)));
+            assert_eq!(result, Ok(DataType::Signed(expected)));
         }
     }
 

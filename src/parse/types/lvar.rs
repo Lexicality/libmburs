@@ -23,7 +23,7 @@ use crate::parse::Datagram;
 use super::{DataType, ParseResult};
 
 pub fn parse_lvar(_dt: RawDataType, vt: ValueType, dg: &mut Datagram) -> ParseResult {
-    let length = dg.next()?;
+    let length = dg.next_byte()?;
     match length {
         0xC0..=0xC9 => parse_positive_bcd(length - 0xC0, vt, dg), // Positive BCD number
         0xD0..=0xD9 => parse_negative_bcd(length - 0xD0, vt, dg), // Negative BCD number
@@ -68,5 +68,5 @@ fn parse_negative_bcd(len: u8, vt: ValueType, dg: &mut Datagram) -> ParseResult 
 pub fn decode_string(mut data: Vec<u8>) -> Result<String> {
     data.reverse();
     let res = decode_latin1(&data);
-    return Ok(res.into_owned());
+    Ok(res.into_owned())
 }

@@ -34,22 +34,23 @@ impl Datagram {
 
     pub fn current(&self) -> Result<u8> {
         if self.index == 0 {
-            return Err(ParseError::UnexpectedEOF);
+            Err(ParseError::UnexpectedEOF)
         } else {
             self.data
                 .get(self.index - 1)
-                .map(|d| *d)
+                .copied()
                 .ok_or(ParseError::UnexpectedEOF)
         }
     }
 
-    pub fn next(&mut self) -> Result<u8> {
+    pub fn next_byte(&mut self) -> Result<u8> {
         let ret = self.data.get(self.index);
         if let Some(ret) = ret {
             self.index += 1;
-            return Ok(*ret);
+            Ok(*ret)
+        } else {
+            Err(ParseError::UnexpectedEOF)
         }
-        return Err(ParseError::UnexpectedEOF);
     }
 
     pub fn take(&mut self, n: usize) -> Result<Vec<u8>> {

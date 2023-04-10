@@ -43,7 +43,7 @@ pub fn unpack_manufacturer_code(packed: u16) -> Result<String> {
         characterise(packed >> 2)?,
         characterise(packed)?,
     ];
-    return Ok(String::from_iter(ret));
+    Ok(String::from_iter(ret))
 }
 
 const fn pack_manufacturer_code(code: &'static str) -> u16 {
@@ -56,7 +56,7 @@ const fn pack_manufacturer_code(code: &'static str) -> u16 {
         "Code must be 3 uppercase letters"
     );
 
-    return (a as u16 - 64) * 32 * 32 + (b as u16 - 64) * 32 + (c as u16 - 64);
+    (a as u16 - 64) * 32 * 32 + (b as u16 - 64) * 32 + (c as u16 - 64)
 }
 
 // Rust, anonyingly, doesn't suport const function expressions in match statements

@@ -64,7 +64,7 @@ pub struct DataInfoBlock {
 
 pub fn parse_dib(dg: &mut Datagram) -> Result<DataInfoBlock> {
     let dif = loop {
-        let dif = dg.next()?;
+        let dif = dg.next_byte()?;
         if dif != IDLE_FILLER {
             break dif;
         }
@@ -95,7 +95,7 @@ pub fn parse_dib(dg: &mut Datagram) -> Result<DataInfoBlock> {
     };
     let mut has_extension = (dif & DIF_EXTENSION) != 0;
     while has_extension {
-        let dife = dg.next()?;
+        let dife = dg.next_byte()?;
         has_extension = (dife & DIF_EXTENSION) != 0;
         let dife_device = ((dife & DIFE_DEVICE) >> 6) as u32;
         let dife_tarif = ((dife & DIFE_TARIFF) >> 4) as u32;
