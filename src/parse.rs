@@ -21,15 +21,82 @@ pub mod vib;
 
 use crate::parse::error::{ParseError, Result};
 
-// This is going to get more complicated
+#[allow(dead_code)]
 pub struct Datagram {
     data: Vec<u8>,
     index: usize,
+    packet_control: u8, // IEC 60780 control field
+    mbus_control: u8,   // IEC 13757 (mbus) control field
+    address: u8,
 }
 
 impl Datagram {
-    pub fn new(data: Vec<u8>) -> Datagram {
-        Datagram { data, index: 0 }
+    pub fn new(data: Vec<u8>, packet_control: u8, mbus_control: u8, address: u8) -> Self {
+        Self {
+            data,
+            index: 0,
+            packet_control,
+            mbus_control,
+            address,
+        }
+    }
+
+    pub fn parse(data: Vec<u8>) -> Result<Self> {
+        let len = data.len();
+        if len == 0 {
+            return Err(ParseError::InvalidPacket("Packet is empty"));
+        }
+        let start1 = data[0];
+        match start1 {
+            0x68 => (),
+            // TODO: Figure out where these are defined and why libmbus supports them,
+            //  because they're not in IEC 60870-5-2
+            0xE5 => todo!("ACK packets not supported yet"),
+            0x10 => todo!("Short packets not supported yet"),
+            _ => return Err(ParseError::InvalidPacket("Start byte is invalid")),
+        }
+
+        let [
+            _,
+            length1,
+            length2,
+            start2,
+            packet_control,
+            address,
+            mbus_control,
+            .. ,
+            checksum,
+            end
+        ] = data[..] else {
+            return Err(ParseError::InvalidPacket("Packet is too short"));
+        };
+        if start1 != 0x68 {
+            return Err(ParseError::InvalidPacket("Start byte is invalid"));
+        } else if length1 != length2 {
+            return Err(ParseError::InvalidPacket("Lengths don't match"));
+        } else if length1 as usize != len - 6 {
+            return Err(ParseError::InvalidPacket("Packet length incorrect"));
+        } else if start2 != 0x68 {
+            return Err(ParseError::InvalidPacket("Second start byte is invalid"));
+        } else if checksum
+            != data
+                .iter()
+                .skip(4)
+                .take(length1 as usize)
+                .copied()
+                .reduce(u8::wrapping_add)
+                .unwrap_or(0)
+        {
+            return Err(ParseError::InvalidPacket("Checksum does not match"));
+        } else if end != 0x16 {
+            return Err(ParseError::InvalidPacket("End byte is invalid"));
+        }
+        Ok(Self::new(
+            (data[6..len - 2]).into(),
+            packet_control,
+            mbus_control,
+            address,
+        ))
     }
 
     pub fn get_byte(&self, index: usize) -> Result<u8> {
