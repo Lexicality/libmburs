@@ -32,25 +32,31 @@ impl Datagram {
         Datagram { data, index: 0 }
     }
 
-    pub fn current(&self) -> Result<u8> {
-        if self.index == 0 {
-            Err(ParseError::UnexpectedEOF)
+    pub fn get_byte(&self, index: usize) -> Result<u8> {
+        self.data
+            .get(index)
+            .copied()
+            .ok_or(ParseError::UnexpectedEOF)
+    }
+
+    pub fn peek(&self) -> Result<u8> {
+        self.get_byte(self.index)
+    }
+
+    pub fn last_byte(&self) -> Result<u8> {
+        if self.index > 0 {
+            self.get_byte(self.index - 1)
         } else {
-            self.data
-                .get(self.index - 1)
-                .copied()
-                .ok_or(ParseError::UnexpectedEOF)
+            Err(ParseError::UnexpectedEOF)
         }
     }
 
     pub fn next_byte(&mut self) -> Result<u8> {
-        let ret = self.data.get(self.index);
-        if let Some(ret) = ret {
+        let ret = self.get_byte(self.index);
+        if ret.is_ok() {
             self.index += 1;
-            Ok(*ret)
-        } else {
-            Err(ParseError::UnexpectedEOF)
         }
+        ret
     }
 
     pub fn take(&mut self, n: usize) -> Result<Vec<u8>> {

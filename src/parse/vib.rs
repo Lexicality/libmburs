@@ -24,7 +24,7 @@ pub fn parse_vib(dg: &mut Datagram) -> Result<ValueInfoBlock> {
     };
 
     // parsing extensions will move the pointer along
-    let has_extension = (dg.current()? & VIF_EXTENSION) != 0;
+    let has_extension = (dg.last_byte()? & VIF_EXTENSION) != 0;
     // TODO: Support additional VIFE frames
     let extra_vifes = match has_extension {
         true => Some(dump_vifes(dg)?),
