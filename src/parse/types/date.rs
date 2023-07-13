@@ -61,7 +61,7 @@ const TYPE_F_DST: u8 = 0b1000_0000;
 fn decode_type_f(data: Vec<u8>) -> ParseResult {
     if data.len() != 4 {
         return Err(ParseError::InvalidData(
-            "Unsupported byte count for type F datetime",
+            "Unsupported byte count for Type F datetime",
         ));
     }
 
@@ -95,7 +95,7 @@ pub struct TypeGDate {
 fn decode_type_g(data: Vec<u8>) -> ParseResult {
     if data.len() != 2 {
         return Err(ParseError::InvalidData(
-            "Unsupported byte count for type G date",
+            "Unsupported byte count for Type G date",
         ));
     }
 
@@ -140,7 +140,7 @@ const TYPE_I_WEEKNUM: u8 = 0b0011_1111;
 fn decode_type_i(data: Vec<u8>) -> ParseResult {
     if data.len() != 6 {
         return Err(ParseError::InvalidData(
-            "Unsupported byte count for type I datetime",
+            "Unsupported byte count for Type I datetime",
         ));
     }
 
@@ -182,7 +182,7 @@ pub struct TypeJTime {
 fn decode_type_j(data: Vec<u8>) -> ParseResult {
     if data.len() != 3 {
         return Err(ParseError::InvalidData(
-            "Unsupported byte count for type J time",
+            "Unsupported byte count for Type J time",
         ));
     }
 
@@ -217,41 +217,41 @@ fn reconstruct_year(byte1: u8, byte2: u8) -> u8 {
 fn validate_seconds(data: u8) -> Result<u8> {
     match data {
         0..=59 | 63 => Ok(data),
-        _ => Err(ParseError::DecodeError("Unexpceted value for seconds")),
+        _ => Err(ParseError::DecodeError("Unexpected value for seconds")),
     }
 }
 
 fn validate_minutes(data: u8) -> Result<u8> {
     match data {
         0..=59 | 63 => Ok(data),
-        _ => Err(ParseError::DecodeError("Unexpceted value for minutes")),
+        _ => Err(ParseError::DecodeError("Unexpected value for minutes")),
     }
 }
 
 fn validate_hours(data: u8) -> Result<u8> {
     match data {
         0..=23 | 31 => Ok(data),
-        _ => Err(ParseError::DecodeError("Unexpceted value for hours")),
+        _ => Err(ParseError::DecodeError("Unexpected value for hours")),
     }
 }
 
 fn validate_day(data: u8) -> Result<u8> {
     match data {
         0..=31 => Ok(data),
-        _ => Err(ParseError::DecodeError("Unexpceted value for day")),
+        _ => Err(ParseError::DecodeError("Unexpected value for day")),
     }
 }
 
 fn validate_weekday(data: u8) -> Result<u8> {
     match data {
         0..=7 => Ok(data),
-        _ => Err(ParseError::DecodeError("Unexpceted value for weekday")),
+        _ => Err(ParseError::DecodeError("Unexpected value for weekday")),
     }
 }
 fn validate_week(data: u8) -> Result<u8> {
     match data {
         0..=53 => Ok(data),
-        _ => Err(ParseError::DecodeError("Unexpceted value for week")),
+        _ => Err(ParseError::DecodeError("Unexpected value for week")),
     }
 }
 
@@ -260,13 +260,13 @@ fn validate_month(data: u8) -> Result<u8> {
         // Technically some formats say 0 is ok and others say 15 is ok but none
         // say both, however, I don't care
         0..=12 | 15 => Ok(data),
-        _ => Err(ParseError::DecodeError("Unexpceted value for month")),
+        _ => Err(ParseError::DecodeError("Unexpected value for month")),
     }
 }
 
 fn validate_year(data: u8) -> Result<u8> {
     match data {
         0..=99 | 127 => Ok(data),
-        _ => Err(ParseError::DecodeError("Unexpceted value for year")),
+        _ => Err(ParseError::DecodeError("Unexpected value for year")),
     }
 }

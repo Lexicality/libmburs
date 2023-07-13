@@ -54,8 +54,8 @@ impl Datagram {
             0x68 => (),
             // TODO: Figure out where these are defined and why libmbus supports them,
             //  because they're not in IEC 60870-5-2
-            0xE5 => todo!("ACK packets not supported yet"),
-            0x10 => todo!("Short packets not supported yet"),
+            0xE5 => todo!("ACK packets aren't supported yet"),
+            0x10 => todo!("Short packets aren't supported yet"),
             _ => return Err(ParseError::InvalidPacket("Start byte is invalid")),
         }
 
@@ -90,7 +90,7 @@ impl Datagram {
                 .reduce(u8::wrapping_add)
                 .unwrap_or(0)
         {
-            return Err(ParseError::InvalidPacket("Checksum does not match"));
+            return Err(ParseError::InvalidPacket("Checksum doesn't match"));
         } else if end != 0x16 {
             return Err(ParseError::InvalidPacket("End byte is invalid"));
         }
