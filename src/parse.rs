@@ -25,19 +25,22 @@ use crate::parse::error::{ParseError, Result};
 pub struct Datagram {
     data: Vec<u8>,
     index: usize,
-    packet_control: u8, // IEC 60780 control field
-    mbus_control: u8,   // IEC 13757 (mbus) control field
+    /// IEC 60780 control field
+    packet_control: u8,
+    /// IEC 60780 address field
     address: u8,
+    /// IEC 13757 (mbus) control information (CI) field
+    mbus_control: u8,
 }
 
 impl Datagram {
-    pub fn new(data: Vec<u8>, packet_control: u8, mbus_control: u8, address: u8) -> Self {
+    pub fn new(data: Vec<u8>, packet_control: u8, address: u8, mbus_control: u8) -> Self {
         Self {
             data,
             index: 0,
             packet_control,
-            mbus_control,
             address,
+            mbus_control,
         }
     }
 
@@ -94,8 +97,8 @@ impl Datagram {
         Ok(Self::new(
             (data[6..len - 2]).into(),
             packet_control,
-            mbus_control,
             address,
+            mbus_control,
         ))
     }
 
