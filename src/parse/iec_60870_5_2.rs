@@ -7,19 +7,19 @@ use winnow::prelude::*;
 use winnow::stream::Stream;
 
 #[derive(Debug)]
-pub enum Packet {
+pub enum Packet<'a> {
     Ack,
-    Data(DataPacket),
+    Data(DataPacket<'a>),
 }
 
 #[derive(Debug)]
-pub struct DataPacket {
+pub struct DataPacket<'a> {
     pub control: u8,
     pub address: u8,
-    pub data: Vec<u8>,
+    pub data: &'a [u8],
 }
 
-fn parse_variable(input: &mut &[u8]) -> PResult<Packet> {
+fn parse_variable<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
     0x68.parse_next(input)?;
     let length = parse_u8.parse_next(input)?;
     parse_u8.verify(|v| *v == length).parse_next(input)?;
@@ -48,11 +48,11 @@ fn parse_variable(input: &mut &[u8]) -> PResult<Packet> {
     Ok(Packet::Data(DataPacket {
         control,
         address,
-        data: data.into(),
+        data,
     }))
 }
 
-fn parse_fixed(input: &mut &[u8]) -> PResult<Packet> {
+fn parse_fixed<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
     // mbus's fixed length datagrams are 2 bytes long, only control & address
     let (_, control, address, checksum, _) =
         (0x10, parse_u8, parse_u8, parse_u8, 0x16).parse_next(input)?;
@@ -65,14 +65,14 @@ fn parse_fixed(input: &mut &[u8]) -> PResult<Packet> {
     Ok(Packet::Data(DataPacket {
         control,
         address,
-        data: Vec::new(),
+        data: &[],
     }))
 }
 
-fn parse_ack(input: &mut &[u8]) -> PResult<Packet> {
+fn parse_ack<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
     0xE5.map(|_| Packet::Ack).parse_next(input)
 }
 
-pub fn parse_packet(input: &mut &[u8]) -> PResult<Packet> {
+pub fn parse_packet<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
     alt((parse_variable, parse_fixed, parse_ack)).parse_next(input)
 }
