@@ -15,6 +15,7 @@
  */
 pub mod dib;
 pub mod error;
+pub mod iec_60870_5_2;
 pub mod manufacturer;
 pub mod types;
 pub mod vib;
@@ -59,18 +60,9 @@ impl Datagram {
             _ => return Err(ParseError::InvalidPacket("Start byte is invalid")),
         }
 
-        let [
-            _,
-            length1,
-            length2,
-            start2,
-            packet_control,
-            address,
-            mbus_control,
-            .. ,
-            checksum,
-            end
-        ] = data[..] else {
+        let [_, length1, length2, start2, packet_control, address, mbus_control, .., checksum, end] =
+            data[..]
+        else {
             return Err(ParseError::InvalidPacket("Packet is too short"));
         };
         if start1 != 0x68 {
