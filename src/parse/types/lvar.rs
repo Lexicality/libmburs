@@ -1,7 +1,6 @@
-/*
- * Copyright 2023 Lexi Robinson
- * Licensed under the EUPL-1.2
- */
+// Copyright 2023 Lexi Robinson
+// Licensed under the EUPL-1.2
+
 use encoding_rs::mem::decode_latin1;
 
 use crate::parse::dib::RawDataType;

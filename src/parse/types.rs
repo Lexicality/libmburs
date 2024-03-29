@@ -1,7 +1,6 @@
-/*
- * Copyright 2023 Lexi Robinson
- * Licensed under the EUPL-1.2
- */
+// Copyright 2023 Lexi Robinson
+// Licensed under the EUPL-1.2
+
 use super::error::Result;
 
 pub mod date;

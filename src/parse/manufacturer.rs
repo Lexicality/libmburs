@@ -1,10 +1,9 @@
-/*
- * Copyright 2023 Lexi Robinson
- * Licensed under the EUPL-1.2
- *
- * Much of the code in this file is based on code from the rSCADA/libmbus
- * project by Raditex Control AB (c) 2010-2012
- */
+// Copyright 2023 Lexi Robinson
+// Licensed under the EUPL-1.2
+//
+// Much of the code in this file is based on code from the rSCADA/libmbus
+// project by Raditex Control AB (c) 2010-2012
+
 use crate::parse::error::{ParseError, Result};
 
 fn characterise(c: u32) -> Result<char> {

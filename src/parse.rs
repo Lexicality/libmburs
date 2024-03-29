@@ -1,7 +1,6 @@
-/*
- * Copyright 2023 Lexi Robinson
- * Licensed under the EUPL-1.2
- */
+// Copyright 2023 Lexi Robinson
+// Licensed under the EUPL-1.2
+
 pub mod dib;
 pub mod error;
 pub mod iec_60870_5_2;

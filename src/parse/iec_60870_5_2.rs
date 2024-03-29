@@ -1,7 +1,6 @@
-/*
- * Copyright 2024 Lexi Robinson
- * Licensed under the EUPL-1.2
- */
+// Copyright 2024 Lexi Robinson
+// Licensed under the EUPL-1.2
+
 use winnow::binary::u8 as parse_u8;
 use winnow::combinator::alt;
 use winnow::error::ErrMode;

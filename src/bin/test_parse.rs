@@ -1,7 +1,6 @@
-/*
- * Copyright 2023 Lexi Robinson
- * Licensed under the EUPL-1.2
- */
+// Copyright 2023 Lexi Robinson
+// Licensed under the EUPL-1.2
+
 use libmbus::parse::iec_60870_5_2::{parse_packet, Packet};
 use std::error;
 use winnow::Parser;
