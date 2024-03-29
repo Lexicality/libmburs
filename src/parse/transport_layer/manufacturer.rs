@@ -4,34 +4,18 @@
 // Much of the code in this file is based on code from the rSCADA/libmbus
 // project by Raditex Control AB (c) 2010-2012
 
-use crate::parse::error::{ParseError, Result};
+use super::header::{DeviceType, WaterMeterType};
 
-fn characterise(c: u32) -> Result<char> {
-    let c = (c & 0x1F) + 64;
-    let c = char::from_u32(c);
-    if let Some(c) = c {
-        if c.is_ascii_uppercase() {
-            Ok(c)
-        } else {
-            Err(ParseError::DecodeError(
-                "Unexpected character in manufacturer code",
-            ))
-        }
-    } else {
-        Err(ParseError::DecodeError(
-            "Invalid character in manufacturer code",
-        ))
-    }
+const fn characterise(c: u16) -> u8 {
+    ((c & 0x1F) + 64) as u8
 }
 
-pub fn unpack_manufacturer_code(packed: u16) -> Result<String> {
-    let packed = packed as u32;
-    let ret = [
-        characterise(packed >> 10)?,
-        characterise(packed >> 2)?,
-        characterise(packed)?,
-    ];
-    Ok(String::from_iter(ret))
+pub fn unpack_manufacturer_code(packed: u16) -> Result<String, std::string::FromUtf8Error> {
+    String::from_utf8(vec![
+        characterise(packed >> 10),
+        characterise(packed >> 5),
+        characterise(packed),
+    ])
 }
 
 const fn pack_manufacturer_code(code: &'static str) -> u16 {
@@ -82,15 +66,11 @@ const TCH: u16 = pack_manufacturer_code("TCH");
 const WZG: u16 = pack_manufacturer_code("WZG");
 const ZRM: u16 = pack_manufacturer_code("ZRM");
 
-const MEDIUM_ELECTRICITY: u8 = 0x02;
-const MEDIUM_WARM_WATER: u8 = 0x06;
-const MEDIUM_UNKNOWN: u8 = 0x0F;
-
 pub fn device_name(
     raw_id: [u8; 4],
     manufacturer: u16,
     version: u8,
-    medium: u8,
+    device_type: DeviceType,
 ) -> Option<&'static str> {
     // HACK: Some manufacturers put the version in a different field
     let version = match manufacturer {
@@ -98,7 +78,7 @@ pub fn device_name(
         _ => version,
     };
 
-    match (manufacturer, version, medium) {
+    match (manufacturer, version, device_type) {
         // ABB AB
         (ABB, 0x02, _) => Some("ABB Delta-Meter"),
         (ABB, 0x20, _) => Some("ABB B21 113-100"),
@@ -115,11 +95,11 @@ pub fn device_name(
         (AMT, 0x80..=0xBF, _) => Some("Aquametro CALEC MB"),
         (AMT, 0xC0..=0xFF, _) => Some("Aquametro CALEC ST"),
         // ??? This manufacturer code is not registered
-        (BEC, 0x00, MEDIUM_ELECTRICITY) => Some("Berg DCMi"),
-        (BEC, 0x07, MEDIUM_ELECTRICITY) => Some("Berg BLMi"),
-        (BEC, 0x71, MEDIUM_UNKNOWN) => Some("Berg BMB-10S0"),
+        (BEC, 0x00, DeviceType::ElectricityMeter) => Some("Berg DCMi"),
+        (BEC, 0x07, DeviceType::ElectricityMeter) => Some("Berg BLMi"),
+        (BEC, 0x71, DeviceType::Unknown) => Some("Berg BMB-10S0"),
         // Engelmann Sensor GmbH
-        (EFE, 0x00, MEDIUM_WARM_WATER) => Some("Engelmann WaterStar"),
+        (EFE, 0x00, DeviceType::WaterMeter(WaterMeterType::Warm)) => Some("Engelmann WaterStar"),
         (EFE, 0x00, _) => Some("Engelmann / Elster SensoStar 2"),
         (EFE, 0x01, _) => Some("Engelmann SensoStar 2C"),
         // Elster GmbH
@@ -132,18 +112,18 @@ pub fn device_name(
         // EMH metering GmbH & Co. KG (formerly EMH Elektrizitatszahler GmbH & CO KG)
         (EMH, 0x00, _) => Some("EMH DIZ"),
         // EMU Elektronik AG
-        (EMU, 0x10, MEDIUM_ELECTRICITY) => Some("EMU Professional 3/75 M-Bus"),
+        (EMU, 0x10, DeviceType::ElectricityMeter) => Some("EMU Professional 3/75 M-Bus"),
         // Carlo Gavazzi Controls S.p.A.
-        (GAV, 0x2D..=0x30, MEDIUM_ELECTRICITY) => Some("Carlo Gavazzi EM24"),
-        (GAV, 0x39 | 0x3A, MEDIUM_ELECTRICITY) => Some("Carlo Gavazzi EM21"),
-        (GAV, 0x40, MEDIUM_ELECTRICITY) => Some("Carlo Gavazzi EM33"),
+        (GAV, 0x2D..=0x30, DeviceType::ElectricityMeter) => Some("Carlo Gavazzi EM24"),
+        (GAV, 0x39 | 0x3A, DeviceType::ElectricityMeter) => Some("Carlo Gavazzi EM21"),
+        (GAV, 0x40, DeviceType::ElectricityMeter) => Some("Carlo Gavazzi EM33"),
         // GMC-I Messtechnik GmbH
         (GMC, 0xE6, _) => Some("GMC-I A230 EMMOD 206"),
         // Hydrometer GmbH
         (HYD, 0x28, _) => Some("ABB F95 Typ US770"),
         (HYD, 0x2F, _) => Some("Hydrometer Sharky 775"),
         // Janitza electronics GmbH
-        (JAN, 0x09, MEDIUM_ELECTRICITY) => Some("Janitza UMG 96S"),
+        (JAN, 0x09, DeviceType::ElectricityMeter) => Some("Janitza UMG 96S"),
         // Kamstrup Energi A/S
         (KAM, 0x01, _) => Some("Kamstrup 382 (6850-005)"),
         (KAM, 0x08, _) => Some("Kamstrup Multical 601"),

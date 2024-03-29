@@ -9,24 +9,30 @@ use winnow::error::ParserError;
 use winnow::prelude::*;
 use winnow::stream::Stream;
 
+const LONG_FRAME_HEADER: u8 = 0x68;
+const SHORT_FRAME_HEADER: u8 = 0x10;
+const FRAME_TAIL: u8 = 0x16;
+const ACK_FRAME: u8 = 0xE5;
+
 #[derive(Debug)]
 pub enum Packet<'a> {
     Ack,
-    Data(DataPacket<'a>),
-}
-
-#[derive(Debug)]
-pub struct DataPacket<'a> {
-    pub control: u8,
-    pub address: u8,
-    pub data: &'a [u8],
+    Short {
+        control: u8,
+        address: u8,
+    },
+    Long {
+        control: u8,
+        address: u8,
+        data: &'a [u8],
+    },
 }
 
 fn parse_variable<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
-    0x68.parse_next(input)?;
+    LONG_FRAME_HEADER.void().parse_next(input)?;
     let length = parse_u8.parse_next(input)?;
-    parse_u8.verify(|v| *v == length).parse_next(input)?;
-    0x68.parse_next(input)?;
+    parse_u8.verify(|v| *v == length).void().parse_next(input)?;
+    LONG_FRAME_HEADER.void().parse_next(input)?;
     let (control, address) = (parse_u8, parse_u8).parse_next(input)?;
     let length = length.into();
     // There are two bytes after the input
@@ -34,7 +40,7 @@ fn parse_variable<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
         return Err(ErrMode::from_error_kind(input, ErrorKind::Slice));
     }
     let data = input.next_slice(length - 2);
-    let (checksum, _) = (parse_u8, 0x16).parse_next(input)?;
+    let (checksum, _) = (parse_u8, FRAME_TAIL.void()).parse_next(input)?;
 
     let sum = data
         .iter()
@@ -48,32 +54,34 @@ fn parse_variable<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
         return Err(ErrMode::from_error_kind(input, ErrorKind::Verify));
     }
 
-    Ok(Packet::Data(DataPacket {
+    Ok(Packet::Long {
         control,
         address,
         data,
-    }))
+    })
 }
 
 fn parse_fixed<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
     // mbus's fixed length datagrams are 2 bytes long, only control & address
-    let (_, control, address, checksum, _) =
-        (0x10, parse_u8, parse_u8, parse_u8, 0x16).parse_next(input)?;
+    let (_, control, address, checksum, _) = (
+        SHORT_FRAME_HEADER.void(),
+        parse_u8,
+        parse_u8,
+        parse_u8,
+        FRAME_TAIL.void(),
+    )
+        .parse_next(input)?;
 
     let sum = control.wrapping_add(address);
     if sum != checksum {
         return Err(ErrMode::from_error_kind(input, ErrorKind::Verify));
     }
 
-    Ok(Packet::Data(DataPacket {
-        control,
-        address,
-        data: &[],
-    }))
+    Ok(Packet::Short { control, address })
 }
 
 fn parse_ack<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
-    0xE5.map(|_| Packet::Ack).parse_next(input)
+    ACK_FRAME.map(|_| Packet::Ack).parse_next(input)
 }
 
 pub fn parse_packet<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {

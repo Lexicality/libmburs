@@ -3,8 +3,8 @@
 
 pub mod dib;
 pub mod error;
-pub mod iec_60870_5_2;
-pub mod manufacturer;
+pub mod link_layer;
+pub mod transport_layer;
 pub mod types;
 pub mod vib;
 
