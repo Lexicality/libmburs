@@ -1,5 +1,7 @@
 [package]
 name = "libmbus"
+license = "EUPL-1.2"
+authors = ["Lexi Robinson <lexi@lexi.org.uk>"]
 version = "0.1.0"
 edition = "2021"
 

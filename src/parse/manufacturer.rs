@@ -1,17 +1,6 @@
 /*
  * Copyright 2023 Lexi Robinson
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Licensed under the EUPL-1.2
  *
  * Much of the code in this file is based on code from the rSCADA/libmbus
  * project by Raditex Control AB (c) 2010-2012
@@ -48,7 +37,9 @@ pub fn unpack_manufacturer_code(packed: u16) -> Result<String> {
 
 const fn pack_manufacturer_code(code: &'static str) -> u16 {
     let code = code.as_bytes();
-    let [a, b, c] = *code else { panic!("Code must be 3 bytes") };
+    let [a, b, c] = *code else {
+        panic!("Code must be 3 bytes")
+    };
     assert!(
         (a as char).is_ascii_uppercase()
             && (b as char).is_ascii_uppercase()
