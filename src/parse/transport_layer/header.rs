@@ -100,12 +100,30 @@ pub struct ShortHeader {
 
 impl ShortHeader {
 	pub fn parse(input: &mut &[u8]) -> PResult<TPLHeader> {
-		Ok(TPLHeader::Short(ShortHeader {
-			access_number: binary::u8.parse_next(input)?,
-			status: MeterStatus::parse.parse_next(input)?,
-			configuration_field: binary::le_u16.verify(|v| *v == 0).parse_next(input)?,
-			extra_header: None,
-		}))
+		Self::parse_raw.map(TPLHeader::Short).parse_next(input)
+	}
+
+	fn parse_raw(input: &mut &[u8]) -> PResult<ShortHeader> {
+		(
+			binary::u8,
+			MeterStatus::parse,
+			binary::le_u16.verify(|v| {
+				// TODO: This field can be many things that are not 0 but I
+				// don't have any way of testing that behaviour so I'm just
+				// going to ignore its existence
+				*v == 0
+			}),
+		)
+			.map(|(access_number, status, configuration_field)| ShortHeader {
+				access_number,
+				status,
+				configuration_field,
+				// This value is set by the contents of `configuration_field`
+				// which as established above is always 0 at this point which
+				// means "no extra headers"
+				extra_header: None,
+			})
+			.parse_next(input)
 	}
 }
 
@@ -207,31 +225,45 @@ pub struct LongHeader {
 
 impl LongHeader {
 	pub fn parse(input: &mut &[u8]) -> PResult<TPLHeader> {
-		let ((identifier, raw_identifier), (manufacturer, raw_manufacturer), version, device_type) =
-			(
-				binary::le_u32.with_recognized(), // FIXME: This should be a BCD
-				binary::le_u16.verify_map(|raw| {
-					unpack_manufacturer_code(raw)
-						.ok()
-						.filter(|parsed| parsed.chars().all(|c| c.is_ascii_uppercase()))
-						.map(|parsed| (parsed, raw))
-				}),
-				binary::u8,
-				DeviceType::parse,
+		(
+			binary::le_u32.with_recognized(), // FIXME: This should be a BCD
+			binary::le_u16.verify_map(|raw| {
+				unpack_manufacturer_code(raw)
+					.ok()
+					.filter(|parsed| parsed.chars().all(|c| c.is_ascii_uppercase()))
+					.map(|parsed| (parsed, raw))
+			}),
+			binary::u8,
+			DeviceType::parse,
+			// The rest of the long header is simply the short header, so use that parser
+			ShortHeader::parse_raw,
+		)
+			.map(
+				|(
+					(identifier, raw_identifier),
+					(manufacturer, raw_manufacturer),
+					version,
+					device_type,
+					short_header,
+				)| LongHeader {
+					identifier,
+					manufacturer,
+					device_name: device_name(
+						raw_identifier,
+						raw_manufacturer,
+						version,
+						device_type,
+					),
+					version,
+					device_type,
+					access_number: short_header.access_number,
+					status: short_header.status,
+					configuration_field: short_header.configuration_field,
+					extra_header: short_header.extra_header,
+				},
 			)
-				.parse_next(input)?;
-
-		Ok(TPLHeader::Long(LongHeader {
-			identifier,
-			manufacturer,
-			device_name: device_name(raw_identifier, raw_manufacturer, version, device_type),
-			version,
-			device_type,
-			access_number: binary::u8.parse_next(input)?,
-			status: MeterStatus::parse.parse_next(input)?,
-			configuration_field: binary::le_u16.verify(|v| *v == 0).parse_next(input)?,
-			extra_header: None,
-		}))
+			.map(TPLHeader::Long)
+			.parse_next(input)
 	}
 }
 
