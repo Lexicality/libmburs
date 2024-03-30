@@ -7,7 +7,7 @@ use winnow::error::{ContextError, ErrMode, InputError, ParserError};
 use winnow::prelude::*;
 use winnow::Bytes;
 
-use crate::parse::dib::RawDataType;
+use crate::parse::application_layer::dib::RawDataType;
 use crate::parse::error::{ParseError, Result};
 use crate::parse::vib::ValueType;
 use crate::parse::Datagram;
