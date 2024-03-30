@@ -1,11 +1,9 @@
 // Copyright 2024 Lexi Robinson
 // Licensed under the EUPL-1.2
 
-use winnow::binary::u8 as parse_u8;
+use winnow::binary;
 use winnow::combinator::alt;
-use winnow::error::ErrMode;
-use winnow::error::ErrorKind;
-use winnow::error::ParserError;
+use winnow::error::{ErrMode, ErrorKind, ParserError};
 use winnow::prelude::*;
 use winnow::stream::Stream;
 
@@ -30,17 +28,20 @@ pub enum Packet<'a> {
 
 fn parse_variable<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
 	LONG_FRAME_HEADER.void().parse_next(input)?;
-	let length = parse_u8.parse_next(input)?;
-	parse_u8.verify(|v| *v == length).void().parse_next(input)?;
+	let length = binary::u8.parse_next(input)?;
+	binary::u8
+		.verify(|v| *v == length)
+		.void()
+		.parse_next(input)?;
 	LONG_FRAME_HEADER.void().parse_next(input)?;
-	let (control, address) = (parse_u8, parse_u8).parse_next(input)?;
+	let (control, address) = (binary::u8, binary::u8).parse_next(input)?;
 	let length = length.into();
 	// There are two bytes after the input
 	if input.len() < length {
 		return Err(ErrMode::from_error_kind(input, ErrorKind::Slice));
 	}
 	let data = input.next_slice(length - 2);
-	let (checksum, _) = (parse_u8, FRAME_TAIL.void()).parse_next(input)?;
+	let (checksum, _) = (binary::u8, FRAME_TAIL.void()).parse_next(input)?;
 
 	let sum = data
 		.iter()
@@ -65,9 +66,9 @@ fn parse_fixed<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
 	// mbus's fixed length datagrams are 2 bytes long, only control & address
 	let (_, control, address, checksum, _) = (
 		SHORT_FRAME_HEADER.void(),
-		parse_u8,
-		parse_u8,
-		parse_u8,
+		binary::u8,
+		binary::u8,
+		binary::u8,
 		FRAME_TAIL.void(),
 	)
 		.parse_next(input)?;
@@ -84,6 +85,8 @@ fn parse_ack<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
 	ACK_FRAME.map(|_| Packet::Ack).parse_next(input)
 }
 
-pub fn parse_packet<'a>(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
-	alt((parse_variable, parse_fixed, parse_ack)).parse_next(input)
+impl<'a> Packet<'a> {
+	pub fn parse(input: &mut &'a [u8]) -> PResult<Packet<'a>> {
+		alt((parse_variable, parse_fixed, parse_ack)).parse_next(input)
+	}
 }
