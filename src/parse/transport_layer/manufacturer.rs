@@ -67,7 +67,7 @@ const WZG: u16 = pack_manufacturer_code("WZG");
 const ZRM: u16 = pack_manufacturer_code("ZRM");
 
 pub fn device_name(
-	raw_id: [u8; 4],
+	raw_id: &[u8],
 	manufacturer: u16,
 	version: u8,
 	device_type: DeviceType,

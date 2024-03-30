@@ -2,7 +2,7 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 use winnow::binary;
-use winnow::combinator::peek;
+
 use winnow::error::{ContextError, InputError, ParserError};
 use winnow::prelude::*;
 
@@ -207,15 +207,14 @@ pub struct LongHeader {
 
 impl LongHeader {
 	pub fn parse(input: &mut &[u8]) -> PResult<TPLHeader> {
-		let (raw_identifier, identifier, (raw_manufacturer, manufacturer), version, device_type) =
+		let ((identifier, raw_identifier), (manufacturer, raw_manufacturer), version, device_type) =
 			(
-				peek(binary::le_u32.map(|id| id.to_le_bytes())),
-				binary::le_u32, // FIXME: This should be a BCD
+				binary::le_u32.with_recognized(), // FIXME: This should be a BCD
 				binary::le_u16.verify_map(|raw| {
 					unpack_manufacturer_code(raw)
 						.ok()
 						.filter(|parsed| parsed.chars().all(|c| c.is_ascii_uppercase()))
-						.map(|parsed| (raw, parsed))
+						.map(|parsed| (parsed, raw))
 				}),
 				binary::u8,
 				DeviceType::parse,
