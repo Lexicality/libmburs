@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 use winnow::binary;
+use winnow::error::StrContext;
 use winnow::PResult;
 use winnow::Parser;
 
@@ -47,9 +48,14 @@ pub enum CICode {
 
 impl CICode {
 	pub fn parse(input: &mut &[u8]) -> PResult<CICode> {
-		let ci = binary::u8.parse_next(input)?;
+		let ci = binary::u8
+			.context(StrContext::Label("CI field"))
+			.parse_next(input)?;
+
+		let mut parse_long_header = LongHeader::parse.context(StrContext::Label("long header"));
+
 		Ok(match ci {
-			0x72 => CICode::ResponseFromDevice(LongHeader::parse.parse_next(input)?),
+			0x72 => CICode::ResponseFromDevice(parse_long_header.parse_next(input)?),
 			_ => todo!(),
 		})
 	}

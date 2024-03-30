@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 use winnow::binary;
 
-use winnow::error::{ContextError, InputError, ParserError};
+use winnow::error::{ContextError, InputError, ParserError, StrContext};
 use winnow::prelude::*;
 
 use super::manufacturer::{device_name, unpack_manufacturer_code};
@@ -105,14 +105,16 @@ impl ShortHeader {
 
 	fn parse_raw(input: &mut &[u8]) -> PResult<ShortHeader> {
 		(
-			binary::u8,
-			MeterStatus::parse,
-			binary::le_u16.verify(|v| {
-				// TODO: This field can be many things that are not 0 but I
-				// don't have any way of testing that behaviour so I'm just
-				// going to ignore its existence
-				*v == 0
-			}),
+			binary::u8.context(StrContext::Label("access number")),
+			MeterStatus::parse.context(StrContext::Label("status")),
+			binary::le_u16
+				.context(StrContext::Label("tpl configuration field"))
+				.verify(|v| {
+					// TODO: This field can be many things that are not 0 but I
+					// don't have any way of testing that behaviour so I'm just
+					// going to ignore its existence
+					*v == 0
+				}),
 		)
 			.map(|(access_number, status, configuration_field)| ShortHeader {
 				access_number,
@@ -226,15 +228,19 @@ pub struct LongHeader {
 impl LongHeader {
 	pub fn parse(input: &mut &[u8]) -> PResult<TPLHeader> {
 		(
-			binary::le_u32.with_recognized(), // FIXME: This should be a BCD
-			binary::le_u16.verify_map(|raw| {
-				unpack_manufacturer_code(raw)
-					.ok()
-					.filter(|parsed| parsed.chars().all(|c| c.is_ascii_uppercase()))
-					.map(|parsed| (parsed, raw))
-			}),
-			binary::u8,
-			DeviceType::parse,
+			binary::le_u32
+				.context(StrContext::Label("device identifier"))
+				.with_recognized(), // FIXME: This should be a BCD
+			binary::le_u16
+				.context(StrContext::Label("manufacturer"))
+				.verify_map(|raw| {
+					unpack_manufacturer_code(raw)
+						.ok()
+						.filter(|parsed| parsed.chars().all(|c| c.is_ascii_uppercase()))
+						.map(|parsed| (parsed, raw))
+				}),
+			binary::u8.context(StrContext::Label("version")),
+			DeviceType::parse.context(StrContext::Label("device type")),
 			// The rest of the long header is simply the short header, so use that parser
 			ShortHeader::parse_raw,
 		)
