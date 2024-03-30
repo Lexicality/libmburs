@@ -11,18 +11,18 @@ pub mod number;
 // store any of the smaller integer types
 #[derive(Debug, PartialEq)]
 pub enum DataType {
-    Unsigned(u64),                  // Type A, C
-    Signed(i64),                    // Type A, B
-    Bool(bool),                     // Type D
-    Real(f32),                      // Type H
-    DateTimeF(date::TypeFDateTime), // Type F
-    DateTimeI(date::TypeIDateTime), // type I
-    Date(date::TypeGDate),          // type G
-    Time(date::TypeJTime),          // Type J
-    String(String),
-    Invalid(Vec<u8>),
-    VariableLengthNumber(Vec<u8>),
-    ManufacturerSpecific(Vec<u8>),
+	Unsigned(u64),                  // Type A, C
+	Signed(i64),                    // Type A, B
+	Bool(bool),                     // Type D
+	Real(f32),                      // Type H
+	DateTimeF(date::TypeFDateTime), // Type F
+	DateTimeI(date::TypeIDateTime), // type I
+	Date(date::TypeGDate),          // type G
+	Time(date::TypeJTime),          // Type J
+	String(String),
+	Invalid(Vec<u8>),
+	VariableLengthNumber(Vec<u8>),
+	ManufacturerSpecific(Vec<u8>),
 }
 
 pub type ParseResult = Result<DataType>;
