@@ -1,12 +1,18 @@
 // Copyright 2023 Lexi Robinson
 // Licensed under the EUPL-1.2
 
+use winnow::binary;
+use winnow::combinator::repeat;
+use winnow::error::{ContextError, ErrMode, InputError, ParserError};
+use winnow::prelude::*;
+use winnow::Bytes;
+
 use crate::parse::dib::RawDataType;
 use crate::parse::error::{ParseError, Result};
 use crate::parse::vib::ValueType;
 use crate::parse::Datagram;
 
-use super::{DataType, ParseResult};
+use super::{BResult, BitsInput, DataType, ParseResult};
 
 pub fn parse_number(dt: RawDataType, vt: ValueType, dg: &mut Datagram) -> ParseResult {
 	match dt {
@@ -22,6 +28,56 @@ pub fn parse_number(dt: RawDataType, vt: ValueType, dg: &mut Datagram) -> ParseR
 			}
 		}
 		_ => Err(ParseError::DataTypeMismatch),
+	}
+}
+
+fn parse_nibble<'a>(input: &mut BitsInput<'a>) -> BResult<'a, i64> {
+	binary::bits::take(4_usize).parse_next(input)
+}
+
+fn parse_bcd_nibble<'a>(input: &mut BitsInput<'a>) -> BResult<'a, i64> {
+	parse_nibble.verify(|v| *v < 10).parse_next(input)
+}
+
+pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, ContextError> {
+	let parser = move |input: &mut BitsInput<'a>| {
+		if bytes == 0 {
+			return Err(ErrMode::assert(input, "cannot parse 0 bytes"));
+		}
+		let mut initial_bytes: Vec<i64> = repeat(
+			bytes - 1,
+			(parse_bcd_nibble, parse_bcd_nibble).map(|(hi, lo)| hi * 10 + lo),
+		)
+		.parse_next(input)?;
+
+		// last byte
+		let (mut high, low) = (
+			parse_nibble.verify(|v| *v == 0x0F || *v < 10),
+			parse_bcd_nibble,
+		)
+			.parse_next(input)?;
+
+		let neg = high == 0x0F;
+		if neg {
+			high = 0;
+		}
+		initial_bytes.push(high * 10 + low);
+
+		let result = initial_bytes
+			.into_iter()
+			.rev()
+			.reduce(|acc, value| acc * 100 + value)
+			.unwrap_or_default();
+
+		Ok(if neg { -result } else { result })
+	};
+
+	move |input: &mut &'a Bytes| {
+		binary::bits::bits::<_, _, InputError<_>, _, _>(parser)
+			.parse_next(input)
+			.map_err(|err| {
+				err.map(|err: InputError<_>| ContextError::from_error_kind(&err.input, err.kind))
+			})
 	}
 }
 

@@ -6,6 +6,8 @@ use winnow::error::{ContextError, InputError, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::Bytes;
 
+use crate::parse::types::number::parse_bcd;
+
 use super::manufacturer::{device_name, unpack_manufacturer_code};
 
 /// This is a placeholder until I actually have some way to test security modes
@@ -228,9 +230,10 @@ pub struct LongHeader {
 impl LongHeader {
 	pub fn parse(input: &mut &Bytes) -> PResult<TPLHeader> {
 		(
-			binary::le_u32
+			parse_bcd(4)
 				.context(StrContext::Label("device identifier"))
-				.with_recognized(), // FIXME: This should be a BCD
+				.try_map(u32::try_from)
+				.with_recognized(),
 			binary::le_u16
 				.context(StrContext::Label("manufacturer"))
 				.verify_map(|raw| {
