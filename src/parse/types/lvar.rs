@@ -58,3 +58,7 @@ pub fn decode_string(mut data: Vec<u8>) -> Result<String> {
 	let res = decode_latin1(&data);
 	Ok(res.into_owned())
 }
+
+pub fn convert_ascii_string(data: &[u8]) -> core::result::Result<String, std::str::Utf8Error> {
+	Ok(std::str::from_utf8(data)?.chars().rev().collect())
+}

@@ -1,78 +1,129 @@
 // Copyright 2023 Lexi Robinson
 // Licensed under the EUPL-1.2
+#![allow(dead_code)]
 
-use crate::parse::error::{ParseError, Result};
-use crate::parse::types::lvar::decode_string;
-use crate::parse::Datagram;
+use crate::parse::types::lvar::convert_ascii_string;
+use crate::parse::types::{BResult, BitsInput};
+use winnow::binary;
+use winnow::binary::bits;
+use winnow::error::{ErrMode, ErrorKind, InputError, ParserError};
+use winnow::Parser;
 
-const VIF_EXTENSION: u8 = 0b1000_0000;
-const VIF_VALUE: u8 = !VIF_EXTENSION;
+const VIF_EXTENSION_1: u8 = 0b0111_1011;
+const VIF_EXTENSION_2: u8 = 0b0111_1101;
+const VIF_ASCII: u8 = 0b011_1100;
+const VIF_MANUFACTURER: u8 = 0b0111_1111;
+const VIF_ANY: u8 = 0b0111_1110;
+
+const DURATION_MASK: u8 = 0b0000_0011;
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct ValueInfoBlock {
 	value_type: ValueType,
+	/// Currently unparsed VIFE that modify the actual value
+	/// TODO: parse them!
 	extra_vifes: Option<Vec<u8>>,
 }
 
-pub fn parse_vib(dg: &mut Datagram) -> Result<ValueInfoBlock> {
-	let vif = dg.next_byte()?;
-	let mut value_type = match vif {
-		0x7C | 0xFC => ValueType::PlainText("".to_string()), // Plain text VIF
-		0x7E | 0xFE => return Err(ParseError::UnsupportedVIF(vif)), // "Any VIF"
-		0x7F | 0xFF => ValueType::ManufacturerSpecific,      // Manufacturer specific
-		0xFD => parse_extension_1(dg)?,                      // Linear VIF-extension 1
-		0xFB => parse_extension_2(dg)?,                      // Linear VIF-extension 2
-		0xEF => return Err(ParseError::UnsupportedVIF(vif)), // Linear VIF-extension 3
-		_ => parse_primary_vif(vif)?,
-	};
-
-	// parsing extensions will move the pointer along
-	let has_extension = (dg.last_byte()? & VIF_EXTENSION) != 0;
-	// TODO: Support additional VIFE frames
-	let extra_vifes = match has_extension {
-		true => Some(dump_vifes(dg)?),
-		false => None,
-	};
-
-	// TODO: words / once the vife is over we get the vif out of the data
-	if let ValueType::PlainText(_) = value_type {
-		let length = dg.next_byte()?;
-		value_type = ValueType::PlainText(decode_string(dg.take(length as usize)?)?);
-	}
-
-	Ok(ValueInfoBlock {
-		value_type,
-		extra_vifes,
-	})
+pub fn parse_vif_byte<'a>(input: &mut BitsInput<'a>) -> BResult<'a, (bool, u8)> {
+	(bits::bool, bits::take(7_usize)).parse_next(input)
 }
 
-fn parse_primary_vif(vif: u8) -> Result<ValueType> {
-	let _value = vif & VIF_VALUE;
-	todo!()
-}
-
-fn parse_extension_1(dg: &mut Datagram) -> Result<ValueType> {
-	let _value = dg.next_byte()? & VIF_VALUE;
-	todo!()
-}
-
-fn parse_extension_2(dg: &mut Datagram) -> Result<ValueType> {
-	let _value = dg.next_byte()? & VIF_VALUE;
-	todo!()
-}
-
-fn dump_vifes(dg: &mut Datagram) -> Result<Vec<u8>> {
+pub fn dump_remaining_vifes<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Vec<u8>> {
 	let mut ret = Vec::new();
 	loop {
-		let vife = dg.next_byte()?;
-		ret.push(vife);
-		if (vife & VIF_EXTENSION) == 0 {
+		let (extension, value) = parse_vif_byte.parse_next(input)?;
+		ret.push(value);
+		if !extension {
 			break;
 		}
 	}
 	Ok(ret)
 }
 
+impl ValueInfoBlock {
+	pub fn parse<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Self> {
+		let (mut extension, raw_value) = parse_vif_byte.parse_next(input)?;
+
+		let value_type = match raw_value {
+			value if value <= 0b0111_1010 => parse_table_10(value),
+			VIF_EXTENSION_1 | VIF_EXTENSION_2 => {
+				if !extension {
+					return Err(ErrMode::from_error_kind(input, ErrorKind::Verify));
+				}
+				let value: u8;
+				(extension, value) = parse_vif_byte.parse_next(input)?;
+				if raw_value == VIF_EXTENSION_1 && value == VIF_EXTENSION_2 {
+					if !extension {
+						return Err(ErrMode::from_error_kind(input, ErrorKind::Verify));
+					}
+					let value: u8;
+					(extension, value) = parse_vif_byte.parse_next(input)?;
+					parse_table_13(value)
+				} else if raw_value == VIF_EXTENSION_1 {
+					parse_table_12(value)
+				} else {
+					parse_table_14(value)
+				}
+			}
+			VIF_ASCII => {
+				// We need to deal with any potential extensions before we can
+				// read the vif string, so chuck a placeholder in there
+				ValueType::PlainText(String::new())
+			}
+			VIF_MANUFACTURER => ValueType::ManufacturerSpecific,
+			VIF_ANY => ValueType::Any,
+			_ => ValueType::Reserved,
+		};
+
+		// TODO: These should be parsed (except for the manufacturer!)
+		let extra_vifes = if extension {
+			Some(dump_remaining_vifes(input)?)
+		} else {
+			None
+		};
+
+		// Now we've parsed all the VIFEs we can get the ascii VIF if necessary
+		let value_type = match value_type {
+			ValueType::PlainText(_) => ValueType::PlainText(
+				bits::bytes::<_, _, InputError<_>, _, _>(
+					binary::length_take(binary::u8).try_map(convert_ascii_string),
+				)
+				.parse_next(input)?,
+			),
+			value_type => value_type,
+		};
+
+		Ok(Self {
+			value_type,
+			extra_vifes,
+		})
+	}
+}
+
+fn parse_table_10(value: u8) -> ValueType {
+	match value {
+		0b0111_0100..=0b0111_0111 => {
+			ValueType::ActualityDuration(DurationType::decode_nn(value & DURATION_MASK))
+		}
+		_ => todo!("table 10 {value} {value:x} {value:b}"),
+	}
+}
+
+fn parse_table_12(value: u8) -> ValueType {
+	todo!("table 12 {value} {value:x} {value:b}")
+}
+
+fn parse_table_13(value: u8) -> ValueType {
+	todo!("table 13 {value} {value:x} {value:b}")
+}
+
+fn parse_table_14(value: u8) -> ValueType {
+	todo!("table 14 {value} {value:x} {value:b}")
+}
+
+#[derive(Debug)]
 pub enum DurationType {
 	Seconds,
 	Minutes,
@@ -82,6 +133,29 @@ pub enum DurationType {
 	Years,
 }
 
+impl DurationType {
+	fn decode_nn(value: u8) -> Self {
+		match value {
+			0b00 => Self::Seconds,
+			0b01 => Self::Minutes,
+			0b10 => Self::Hours,
+			0b11 => Self::Days,
+			_ => unreachable!(),
+		}
+	}
+
+	fn decode_pp(value: u8) -> Self {
+		match value {
+			0b00 => Self::Hours,
+			0b01 => Self::Days,
+			0b10 => Self::Months,
+			0b11 => Self::Years,
+			_ => unreachable!(),
+		}
+	}
+}
+
+#[derive(Debug)]
 pub enum Unit {
 	Bar,   // bar
 	C,     // °C
@@ -108,7 +182,10 @@ pub enum Unit {
 	Wh,    // Wh
 }
 
+#[derive(Debug)]
 pub enum ValueType {
+	Any,
+	Reserved,
 	Unsupported,
 	PlainText(String),
 	ManufacturerSpecific,

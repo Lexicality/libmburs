@@ -2,6 +2,7 @@
 // Licensed under the EUPL-1.2
 
 use libmbus::parse::application_layer::dib::DataInfoBlock;
+use libmbus::parse::application_layer::vib::ValueInfoBlock;
 use libmbus::parse::link_layer::Packet;
 use libmbus::parse::transport_layer::CICode;
 use std::error;
@@ -23,11 +24,14 @@ fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 				.map_err(|e| e.to_string())?;
 			println!("{ci:#?}");
 
-			// Parse the first DIB
-			let dib = bits::bits::<_, _, _, InputError<_>, _>(DataInfoBlock::parse)
-				.parse_next(&mut data)
-				.map_err(|e| e.to_string())?;
-			println!("{dib:?}");
+			// Parse the first DIB & VIB
+			let (dib, vib) = bits::bits::<_, _, _, InputError<_>, _>((
+				DataInfoBlock::parse,
+				ValueInfoBlock::parse,
+			))
+			.parse_next(&mut data)
+			.map_err(|e| e.to_string())?;
+			println!("{dib:?}\n{vib:?}");
 		}
 		_ => todo!(),
 	}
