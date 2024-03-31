@@ -7,6 +7,7 @@ use winnow::binary::bits;
 use winnow::error::{ErrMode, ParserError};
 use winnow::Parser;
 
+#[derive(Debug)]
 pub enum RawDataType {
 	None,
 	Binary(usize),
@@ -34,6 +35,7 @@ impl RawDataType {
 	}
 }
 
+#[derive(Debug)]
 pub enum DataFunction {
 	InstantaneousValue,
 	MaximumValue,
@@ -55,6 +57,7 @@ impl DataFunction {
 	}
 }
 
+#[derive(Debug)]
 pub struct DataInfoBlock {
 	raw_type: RawDataType,
 	function: DataFunction,
@@ -64,7 +67,7 @@ pub struct DataInfoBlock {
 }
 
 impl DataInfoBlock {
-	fn parse<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Self> {
+	pub fn parse<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Self> {
 		let (mut extension, mut storage, function, raw_type): (bool, u64, _, _) = (
 			bits::bool,
 			bits::take(1_usize),
