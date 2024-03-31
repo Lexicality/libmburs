@@ -8,8 +8,8 @@ use winnow::prelude::*;
 use winnow::Bytes;
 
 use crate::parse::application_layer::dib::RawDataType;
+use crate::parse::application_layer::vib::ValueType;
 use crate::parse::error::{ParseError, Result};
-use crate::parse::vib::ValueType;
 use crate::parse::Datagram;
 
 use super::{BResult, BitsInput, DataType, ParseResult};

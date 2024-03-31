@@ -6,7 +6,6 @@ pub mod error;
 pub mod link_layer;
 pub mod transport_layer;
 pub mod types;
-pub mod vib;
 
 use crate::parse::error::{ParseError, Result};
 

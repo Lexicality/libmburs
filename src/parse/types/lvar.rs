@@ -4,8 +4,8 @@
 use encoding_rs::mem::decode_latin1;
 
 use crate::parse::application_layer::dib::RawDataType;
+use crate::parse::application_layer::vib::ValueType;
 use crate::parse::error::{ParseError, Result};
-use crate::parse::vib::ValueType;
 use crate::parse::Datagram;
 
 use super::{DataType, ParseResult};
