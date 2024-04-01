@@ -9,6 +9,7 @@ use super::error::Result;
 pub mod date;
 pub mod lvar;
 pub mod number;
+pub mod string;
 
 // Note to self, enums always take up the maxmium size so there's no reason to
 // store any of the smaller integer types

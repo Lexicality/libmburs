@@ -2,12 +2,11 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 
-use crate::parse::types::lvar::convert_ascii_string;
+use crate::parse::types::string::parse_length_prefix_ascii;
 use crate::parse::types::{BResult, BitsInput};
-use winnow::binary;
 use winnow::binary::bits;
 use winnow::error::{ErrMode, ErrorKind, InputError, ParserError};
-use winnow::Parser;
+use winnow::prelude::*;
 
 const VIF_EXTENSION_1: u8 = 0b0111_1011;
 const VIF_EXTENSION_2: u8 = 0b0111_1101;
@@ -87,10 +86,8 @@ impl ValueInfoBlock {
 		// Now we've parsed all the VIFEs we can get the ascii VIF if necessary
 		let value_type = match value_type {
 			ValueType::PlainText(_) => ValueType::PlainText(
-				bits::bytes::<_, _, InputError<_>, _, _>(
-					binary::length_take(binary::u8).try_map(convert_ascii_string),
-				)
-				.parse_next(input)?,
+				bits::bytes::<_, _, InputError<_>, _, _>(parse_length_prefix_ascii)
+					.parse_next(input)?,
 			),
 			value_type => value_type,
 		};
