@@ -1,13 +1,11 @@
 // Copyright 2023 Lexi Robinson
 // Licensed under the EUPL-1.2
 
-use libmbus::parse::application_layer::dib::DataInfoBlock;
-use libmbus::parse::application_layer::vib::ValueInfoBlock;
+use libmbus::parse::application_layer::record::Record;
 use libmbus::parse::link_layer::Packet;
 use libmbus::parse::transport_layer::CICode;
 use std::error;
-use winnow::binary::bits;
-use winnow::{Bytes, Parser};
+use winnow::{error::StrContext, Bytes, Parser};
 
 fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 	let data = std::fs::read(fname).map_err(Box::new)?;
@@ -23,11 +21,12 @@ fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 				.map_err(|e| e.to_string())?;
 			println!("{ci:#?}");
 
-			// Parse the first DIB & VIB
-			let (dib, vib) = bits::bits((DataInfoBlock::parse, ValueInfoBlock::parse))
+			// Parse the first record
+			let record1 = Record::parse
+				.context(StrContext::Label("first record"))
 				.parse_next(&mut data)
 				.map_err(|e| e.to_string())?;
-			println!("{dib:?}\n{vib:?}");
+			println!("{record1:#?}");
 		}
 		_ => todo!(),
 	}
