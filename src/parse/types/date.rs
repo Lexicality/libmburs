@@ -35,13 +35,13 @@ const MASK_INVALID: u8 = 0b1000_0000;
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct TypeFDateTime {
-	minute: u8,
-	hour: u8,
-	day: u8,
-	month: u8,
-	year: u8,
-	hundred_year: u8,
-	in_dst: bool,
+	pub minute: u8,
+	pub hour: u8,
+	pub day: u8,
+	pub month: u8,
+	pub year: u8,
+	pub hundred_year: u8,
+	pub in_dst: bool,
 }
 
 const TYPE_F_HUNDRED: u8 = 0b0110_0000;
@@ -75,9 +75,9 @@ fn decode_type_f(data: Vec<u8>) -> ParseResult {
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct TypeGDate {
-	day: u8,
-	month: u8,
-	year: u8,
+	pub day: u8,
+	pub month: u8,
+	pub year: u8,
 }
 
 fn decode_type_g(data: Vec<u8>) -> ParseResult {
@@ -106,17 +106,17 @@ fn decode_type_g(data: Vec<u8>) -> ParseResult {
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct TypeIDateTime {
-	second: u8,
-	minute: u8,
-	hour: u8,
-	day: u8,
-	month: u8,
-	year: u8,
-	day_of_week: u8,
-	week: u8,
-	in_dst: bool,
-	leap_year: bool,
-	dst_offset: i8,
+	pub second: u8,
+	pub minute: u8,
+	pub hour: u8,
+	pub day: u8,
+	pub month: u8,
+	pub year: u8,
+	pub day_of_week: u8,
+	pub week: u8,
+	pub in_dst: bool,
+	pub leap_year: bool,
+	pub dst_offset: i8,
 }
 
 const TYPE_I_DST: u8 = 0b0100_0000;
@@ -163,9 +163,9 @@ fn decode_type_i(data: Vec<u8>) -> ParseResult {
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct TypeJTime {
-	second: u8,
-	minute: u8,
-	hour: u8,
+	pub second: u8,
+	pub minute: u8,
+	pub hour: u8,
 }
 fn decode_type_j(data: Vec<u8>) -> ParseResult {
 	if data.len() != 3 {

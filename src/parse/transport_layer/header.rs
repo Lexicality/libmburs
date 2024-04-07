@@ -33,21 +33,21 @@ pub enum ApplicationError {
 // bitfield or something as opposed to 7 bytes
 #[derive(Debug)]
 pub struct MeterStatus {
-	manufacturer_2: bool,
-	manufacturer_1: bool,
-	manufacturer_0: bool,
+	pub manufacturer_2: bool,
+	pub manufacturer_1: bool,
+	pub manufacturer_0: bool,
 	/// Warning — The bit “temporary error” is set only if the meter signals a
 	/// slight error condition (which not immediately requires a service
 	/// action). This error condition may later disappear.
-	temporary_error: bool,
+	pub temporary_error: bool,
 	/// Failure — The bit “permanent error” is set only if the meter signals a
 	/// fatal device error (which requires a service action).
 	/// Error can be reset only by a service action.
-	permanent_error: bool,
+	pub permanent_error: bool,
 	/// Warning — The bit “power low” is set only to signal interruption of
 	/// external power supply or the end of battery life.
-	power_low: bool,
-	application: ApplicationError,
+	pub power_low: bool,
+	pub application: ApplicationError,
 }
 
 impl MeterStatus {
@@ -92,10 +92,10 @@ impl MeterStatus {
 
 #[derive(Debug)]
 pub struct ShortHeader {
-	access_number: u8,
-	status: MeterStatus,
-	configuration_field: u16,
-	extra_header: Option<ExtraHeader>,
+	pub access_number: u8,
+	pub status: MeterStatus,
+	pub configuration_field: u16,
+	pub extra_header: Option<ExtraHeader>,
 }
 
 impl ShortHeader {
@@ -214,15 +214,15 @@ impl DeviceType {
 
 #[derive(Debug)]
 pub struct LongHeader {
-	identifier: u32,
-	manufacturer: String,
-	device_name: Option<&'static str>,
-	version: u8,
-	device_type: DeviceType,
-	access_number: u8,
-	status: MeterStatus,
-	configuration_field: u16,
-	extra_header: Option<ExtraHeader>,
+	pub identifier: u32,
+	pub manufacturer: String,
+	pub device_name: Option<&'static str>,
+	pub version: u8,
+	pub device_type: DeviceType,
+	pub access_number: u8,
+	pub status: MeterStatus,
+	pub configuration_field: u16,
+	pub extra_header: Option<ExtraHeader>,
 }
 
 impl LongHeader {

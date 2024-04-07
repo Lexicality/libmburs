@@ -20,10 +20,10 @@ const DURATION_MASK: u8 = 0b0000_0011;
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct ValueInfoBlock {
-	value_type: ValueType,
+	pub value_type: ValueType,
 	/// Currently unparsed VIFE that modify the actual value
 	/// TODO: parse them!
-	extra_vifes: Option<Vec<u8>>,
+	pub extra_vifes: Option<Vec<u8>>,
 }
 
 pub fn parse_vif_byte(input: &mut BitsInput<'_>) -> MBResult<(bool, u8)> {

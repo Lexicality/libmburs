@@ -60,11 +60,11 @@ impl DataFunction {
 
 #[derive(Debug)]
 pub struct DataInfoBlock {
-	raw_type: RawDataType,
-	function: DataFunction,
-	storage: u64,
-	tariff: u32,
-	device: u16,
+	pub raw_type: RawDataType,
+	pub function: DataFunction,
+	pub storage: u64,
+	pub tariff: u32,
+	pub device: u16,
 }
 
 impl DataInfoBlock {
