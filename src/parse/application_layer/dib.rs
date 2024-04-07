@@ -5,7 +5,7 @@
 use crate::parse::error::MBResult;
 use crate::parse::types::BitsInput;
 use winnow::binary::bits;
-use winnow::error::{ErrMode, ParserError};
+use winnow::error::{ErrMode, ParserError, StrContext};
 use winnow::Parser;
 
 #[derive(Debug)]
@@ -73,8 +73,9 @@ impl DataInfoBlock {
 			bits::bool,
 			bits::take(1_usize),
 			DataFunction::parse,
-			RawDataType::parse,
+			RawDataType::parse.context(StrContext::Label("raw data type")),
 		)
+			.context(StrContext::Label("DIF byte"))
 			.parse_next(input)?;
 
 		let mut tariff = 0;
@@ -96,6 +97,7 @@ impl DataInfoBlock {
 				bits::take(2_usize),
 				bits::take(4_usize),
 			)
+				.context(StrContext::Label("DIFE byte"))
 				.parse_next(input)?;
 
 			// TODO: Perhaps this should be a warning rather than an error?

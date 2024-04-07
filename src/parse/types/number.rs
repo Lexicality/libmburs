@@ -3,7 +3,7 @@
 
 use winnow::binary;
 use winnow::combinator::repeat;
-use winnow::error::{ErrMode, ParserError};
+use winnow::error::{ErrMode, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::Bytes;
 
@@ -48,6 +48,7 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 			bytes - 1,
 			(parse_bcd_nibble, parse_bcd_nibble).map(|(hi, lo)| hi * 10 + lo),
 		)
+		.context(StrContext::Label("initial bytes"))
 		.parse_next(input)?;
 
 		// last byte
@@ -55,6 +56,7 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 			parse_nibble.verify(|v| *v == 0x0F || *v < 10),
 			parse_bcd_nibble,
 		)
+			.context(StrContext::Label("final byte"))
 			.parse_next(input)?;
 
 		let neg = high == 0x0F;
@@ -72,7 +74,11 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 		Ok(if neg { -result } else { result })
 	};
 
-	move |input: &mut &'a Bytes| binary::bits::bits(parser).parse_next(input)
+	move |input: &mut &'a Bytes| {
+		binary::bits::bits(parser)
+			.context(StrContext::Label("signed BCD number"))
+			.parse_next(input)
+	}
 }
 
 fn decode_bcd(mut data: Vec<u8>) -> ParseResult {

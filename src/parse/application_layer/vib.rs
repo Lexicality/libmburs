@@ -6,7 +6,7 @@ use crate::parse::error::MBResult;
 use crate::parse::types::string::parse_length_prefix_ascii;
 use crate::parse::types::BitsInput;
 use winnow::binary::bits;
-use winnow::error::{ErrMode, ErrorKind, ParserError};
+use winnow::error::{ErrMode, ErrorKind, ParserError, StrContext};
 use winnow::prelude::*;
 
 const VIF_EXTENSION_1: u8 = 0b0111_1011;
@@ -33,7 +33,9 @@ pub fn parse_vif_byte(input: &mut BitsInput<'_>) -> MBResult<(bool, u8)> {
 pub fn dump_remaining_vifes(input: &mut BitsInput<'_>) -> MBResult<Vec<u8>> {
 	let mut ret = Vec::new();
 	loop {
-		let (extension, value) = parse_vif_byte.parse_next(input)?;
+		let (extension, value) = parse_vif_byte
+			.context(StrContext::Label("VIFE"))
+			.parse_next(input)?;
 		ret.push(value);
 		if !extension {
 			break;
@@ -44,7 +46,9 @@ pub fn dump_remaining_vifes(input: &mut BitsInput<'_>) -> MBResult<Vec<u8>> {
 
 impl ValueInfoBlock {
 	pub fn parse(input: &mut BitsInput<'_>) -> MBResult<Self> {
-		let (mut extension, raw_value) = parse_vif_byte.parse_next(input)?;
+		let (mut extension, raw_value) = parse_vif_byte
+			.context(StrContext::Label("initial VIF"))
+			.parse_next(input)?;
 
 		let value_type = match raw_value {
 			value if value <= 0b0111_1010 => parse_table_10(value),
@@ -53,13 +57,17 @@ impl ValueInfoBlock {
 					return Err(ErrMode::from_error_kind(input, ErrorKind::Verify));
 				}
 				let value: u8;
-				(extension, value) = parse_vif_byte.parse_next(input)?;
+				(extension, value) = parse_vif_byte
+					.context(StrContext::Label("VIF extension byte"))
+					.parse_next(input)?;
 				if raw_value == VIF_EXTENSION_1 && value == VIF_EXTENSION_2 {
 					if !extension {
 						return Err(ErrMode::from_error_kind(input, ErrorKind::Verify));
 					}
 					let value: u8;
-					(extension, value) = parse_vif_byte.parse_next(input)?;
+					(extension, value) = parse_vif_byte
+						.context(StrContext::Label("VIF extension layer 2 byte"))
+						.parse_next(input)?;
 					parse_table_13(value)
 				} else if raw_value == VIF_EXTENSION_1 {
 					parse_table_12(value)
@@ -86,9 +94,11 @@ impl ValueInfoBlock {
 
 		// Now we've parsed all the VIFEs we can get the ascii VIF if necessary
 		let value_type = match value_type {
-			ValueType::PlainText(_) => {
-				ValueType::PlainText(bits::bytes(parse_length_prefix_ascii).parse_next(input)?)
-			}
+			ValueType::PlainText(_) => ValueType::PlainText(
+				bits::bytes(parse_length_prefix_ascii)
+					.context(StrContext::Label("plain text VIF data"))
+					.parse_next(input)?,
+			),
 			value_type => value_type,
 		};
 
