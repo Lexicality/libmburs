@@ -3,16 +3,16 @@
 
 use winnow::binary;
 use winnow::combinator::repeat;
-use winnow::error::{ContextError, ErrMode, InputError, ParserError};
+use winnow::error::{ErrMode, ParserError};
 use winnow::prelude::*;
 use winnow::Bytes;
 
 use crate::parse::application_layer::dib::RawDataType;
 use crate::parse::application_layer::vib::ValueType;
-use crate::parse::error::{ParseError, Result};
+use crate::parse::error::{MBResult, MBusError, ParseError, Result};
 use crate::parse::Datagram;
 
-use super::{BResult, BitsInput, DataType, ParseResult};
+use super::{BitsInput, DataType, ParseResult};
 
 pub fn parse_number(dt: RawDataType, vt: ValueType, dg: &mut Datagram) -> ParseResult {
 	match dt {
@@ -31,15 +31,15 @@ pub fn parse_number(dt: RawDataType, vt: ValueType, dg: &mut Datagram) -> ParseR
 	}
 }
 
-fn parse_nibble<'a>(input: &mut BitsInput<'a>) -> BResult<'a, i64> {
+fn parse_nibble(input: &mut BitsInput<'_>) -> MBResult<i64> {
 	binary::bits::take(4_usize).parse_next(input)
 }
 
-fn parse_bcd_nibble<'a>(input: &mut BitsInput<'a>) -> BResult<'a, i64> {
+fn parse_bcd_nibble(input: &mut BitsInput<'_>) -> MBResult<i64> {
 	parse_nibble.verify(|v| *v < 10).parse_next(input)
 }
 
-pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, ContextError> {
+pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 	let parser = move |input: &mut BitsInput<'a>| {
 		if bytes == 0 {
 			return Err(ErrMode::assert(input, "cannot parse 0 bytes"));
@@ -72,13 +72,7 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, ContextError> 
 		Ok(if neg { -result } else { result })
 	};
 
-	move |input: &mut &'a Bytes| {
-		binary::bits::bits::<_, _, InputError<_>, _, _>(parser)
-			.parse_next(input)
-			.map_err(|err| {
-				err.map(|err: InputError<_>| ContextError::from_error_kind(&err.input, err.kind))
-			})
-	}
+	move |input: &mut &'a Bytes| binary::bits::bits(parser).parse_next(input)
 }
 
 fn decode_bcd(mut data: Vec<u8>) -> ParseResult {

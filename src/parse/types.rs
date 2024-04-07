@@ -1,8 +1,7 @@
 // Copyright 2023 Lexi Robinson
 // Licensed under the EUPL-1.2
 
-use winnow::error::InputError;
-use winnow::{Bytes, PResult};
+use winnow::Bytes;
 
 use super::error::Result;
 
@@ -32,5 +31,3 @@ pub enum DataType {
 pub type ParseResult = Result<DataType>;
 
 pub type BitsInput<'a> = (&'a Bytes, usize);
-pub type BitsError<'a> = InputError<BitsInput<'a>>;
-pub type BResult<'a, O> = PResult<O, BitsError<'a>>;

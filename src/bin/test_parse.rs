@@ -7,7 +7,6 @@ use libmbus::parse::link_layer::Packet;
 use libmbus::parse::transport_layer::CICode;
 use std::error;
 use winnow::binary::bits;
-use winnow::error::InputError;
 use winnow::{Bytes, Parser};
 
 fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
@@ -25,12 +24,9 @@ fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 			println!("{ci:#?}");
 
 			// Parse the first DIB & VIB
-			let (dib, vib) = bits::bits::<_, _, _, InputError<_>, _>((
-				DataInfoBlock::parse,
-				ValueInfoBlock::parse,
-			))
-			.parse_next(&mut data)
-			.map_err(|e| e.to_string())?;
+			let (dib, vib) = bits::bits((DataInfoBlock::parse, ValueInfoBlock::parse))
+				.parse_next(&mut data)
+				.map_err(|e| e.to_string())?;
 			println!("{dib:?}\n{vib:?}");
 		}
 		_ => todo!(),

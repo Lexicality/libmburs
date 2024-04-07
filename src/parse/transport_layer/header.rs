@@ -2,10 +2,11 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 use winnow::binary;
-use winnow::error::{ContextError, InputError, ParserError, StrContext};
+use winnow::error::{InputError, StrContext};
 use winnow::prelude::*;
 use winnow::Bytes;
 
+use crate::parse::error::MBResult;
 use crate::parse::types::number::parse_bcd;
 
 use super::manufacturer::{device_name, unpack_manufacturer_code};
@@ -50,7 +51,7 @@ pub struct MeterStatus {
 }
 
 impl MeterStatus {
-	fn parse(input: &mut &Bytes) -> PResult<MeterStatus> {
+	fn parse(input: &mut &Bytes) -> MBResult<MeterStatus> {
 		binary::bits::bits::<_, _, InputError<_>, _, _>((
 			binary::bits::bool,
 			binary::bits::bool,
@@ -86,9 +87,6 @@ impl MeterStatus {
 			},
 		)
 		.parse_next(input)
-		.map_err(|err| {
-			err.map(|err: InputError<_>| ContextError::from_error_kind(&err.input, err.kind))
-		})
 	}
 }
 
@@ -101,11 +99,11 @@ pub struct ShortHeader {
 }
 
 impl ShortHeader {
-	pub fn parse(input: &mut &Bytes) -> PResult<TPLHeader> {
+	pub fn parse(input: &mut &Bytes) -> MBResult<TPLHeader> {
 		Self::parse_raw.map(TPLHeader::Short).parse_next(input)
 	}
 
-	fn parse_raw(input: &mut &Bytes) -> PResult<ShortHeader> {
+	fn parse_raw(input: &mut &Bytes) -> MBResult<ShortHeader> {
 		(
 			binary::u8.context(StrContext::Label("access number")),
 			MeterStatus::parse.context(StrContext::Label("status")),
@@ -194,7 +192,7 @@ pub enum DeviceType {
 }
 
 impl DeviceType {
-	fn parse(input: &mut &Bytes) -> PResult<DeviceType> {
+	fn parse(input: &mut &Bytes) -> MBResult<DeviceType> {
 		binary::u8
 			.map(|v| match v {
 				0x00 => DeviceType::Other,
@@ -228,7 +226,7 @@ pub struct LongHeader {
 }
 
 impl LongHeader {
-	pub fn parse(input: &mut &Bytes) -> PResult<TPLHeader> {
+	pub fn parse(input: &mut &Bytes) -> MBResult<TPLHeader> {
 		(
 			parse_bcd(4)
 				.context(StrContext::Label("device identifier"))

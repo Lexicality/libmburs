@@ -2,7 +2,8 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 
-use crate::parse::types::{BResult, BitsInput};
+use crate::parse::error::MBResult;
+use crate::parse::types::BitsInput;
 use winnow::binary::bits;
 use winnow::error::{ErrMode, ParserError};
 use winnow::Parser;
@@ -17,7 +18,7 @@ pub enum RawDataType {
 }
 
 impl RawDataType {
-	fn parse<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Self> {
+	fn parse(input: &mut BitsInput<'_>) -> MBResult<Self> {
 		bits::take(4_usize)
 			.verify_map(|value: u8| match value {
 				0b0000 => Some(Self::None),
@@ -44,7 +45,7 @@ pub enum DataFunction {
 }
 
 impl DataFunction {
-	fn parse<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Self> {
+	fn parse(input: &mut BitsInput<'_>) -> MBResult<Self> {
 		bits::take(2_usize)
 			.map(|value: u8| match value {
 				0b00 => Self::InstantaneousValue,
@@ -67,7 +68,7 @@ pub struct DataInfoBlock {
 }
 
 impl DataInfoBlock {
-	pub fn parse<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Self> {
+	pub fn parse(input: &mut BitsInput<'_>) -> MBResult<Self> {
 		let (mut extension, mut storage, function, raw_type): (bool, u64, _, _) = (
 			bits::bool,
 			bits::take(1_usize),

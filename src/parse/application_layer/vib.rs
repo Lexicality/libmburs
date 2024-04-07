@@ -2,10 +2,11 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 
+use crate::parse::error::MBResult;
 use crate::parse::types::string::parse_length_prefix_ascii;
-use crate::parse::types::{BResult, BitsInput};
+use crate::parse::types::BitsInput;
 use winnow::binary::bits;
-use winnow::error::{ErrMode, ErrorKind, InputError, ParserError};
+use winnow::error::{ErrMode, ErrorKind, ParserError};
 use winnow::prelude::*;
 
 const VIF_EXTENSION_1: u8 = 0b0111_1011;
@@ -25,11 +26,11 @@ pub struct ValueInfoBlock {
 	extra_vifes: Option<Vec<u8>>,
 }
 
-pub fn parse_vif_byte<'a>(input: &mut BitsInput<'a>) -> BResult<'a, (bool, u8)> {
+pub fn parse_vif_byte(input: &mut BitsInput<'_>) -> MBResult<(bool, u8)> {
 	(bits::bool, bits::take(7_usize)).parse_next(input)
 }
 
-pub fn dump_remaining_vifes<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Vec<u8>> {
+pub fn dump_remaining_vifes(input: &mut BitsInput<'_>) -> MBResult<Vec<u8>> {
 	let mut ret = Vec::new();
 	loop {
 		let (extension, value) = parse_vif_byte.parse_next(input)?;
@@ -42,7 +43,7 @@ pub fn dump_remaining_vifes<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Vec<u8
 }
 
 impl ValueInfoBlock {
-	pub fn parse<'a>(input: &mut BitsInput<'a>) -> BResult<'a, Self> {
+	pub fn parse(input: &mut BitsInput<'_>) -> MBResult<Self> {
 		let (mut extension, raw_value) = parse_vif_byte.parse_next(input)?;
 
 		let value_type = match raw_value {
@@ -85,10 +86,9 @@ impl ValueInfoBlock {
 
 		// Now we've parsed all the VIFEs we can get the ascii VIF if necessary
 		let value_type = match value_type {
-			ValueType::PlainText(_) => ValueType::PlainText(
-				bits::bytes::<_, _, InputError<_>, _, _>(parse_length_prefix_ascii)
-					.parse_next(input)?,
-			),
+			ValueType::PlainText(_) => {
+				ValueType::PlainText(bits::bytes(parse_length_prefix_ascii).parse_next(input)?)
+			}
 			value_type => value_type,
 		};
 

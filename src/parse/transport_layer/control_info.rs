@@ -7,6 +7,8 @@ use winnow::error::StrContext;
 use winnow::prelude::*;
 use winnow::Bytes;
 
+use crate::parse::error::MBResult;
+
 use super::header::LongHeader;
 use super::header::TPLHeader;
 
@@ -47,7 +49,7 @@ pub enum CICode {
 }
 
 impl CICode {
-	pub fn parse(input: &mut &Bytes) -> PResult<CICode> {
+	pub fn parse(input: &mut &Bytes) -> MBResult<CICode> {
 		let ci = binary::u8
 			.context(StrContext::Label("CI field"))
 			.parse_next(input)?;
