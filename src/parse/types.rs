@@ -26,6 +26,7 @@ pub enum DataType {
 	Invalid(Vec<u8>),
 	VariableLengthNumber(Vec<u8>),
 	ManufacturerSpecific(Vec<u8>),
+	None,
 }
 
 pub type ParseResult = Result<DataType>;

@@ -24,9 +24,10 @@ impl Record {
 
 		// TODO: The vib can change how this data is parsed!
 		let data = match dib.raw_type {
-			RawDataType::BCD(num) => parse_bcd(num).map(DataType::Signed).parse_next(input),
+			RawDataType::BCD(num) => parse_bcd(num).map(DataType::Signed).parse_next(input)?,
+			RawDataType::None => DataType::None,
 			_ => unimplemented!(),
-		}?;
+		};
 
 		Ok(Self { dib, vib, data })
 	}
