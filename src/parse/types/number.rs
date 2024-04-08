@@ -43,6 +43,11 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 	let parser = move |input: &mut BitsInput<'a>| {
 		if bytes == 0 {
 			return Err(ErrMode::assert(input, "cannot parse 0 bytes"));
+		} else if bytes > 9 {
+			return Err(ErrMode::assert(
+				input,
+				"cannot safely parse more than 9 bytes",
+			));
 		}
 		let mut initial_bytes: Vec<i64> = repeat(
 			bytes - 1,
@@ -78,6 +83,129 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 		binary::bits::bits(parser)
 			.context(StrContext::Label("signed BCD number"))
 			.parse_next(input)
+	}
+}
+
+#[cfg(test)]
+mod test_parse_bcd {
+	use winnow::error::ErrorKind;
+	use winnow::{Bytes, Parser};
+
+	use super::parse_bcd;
+
+	#[test]
+	fn test_basic_unsigned() {
+		let input = Bytes::new(&[0x12]);
+
+		let result = parse_bcd(1).parse(input).unwrap();
+
+		assert_eq!(result, 12);
+	}
+
+	#[test]
+	fn test_byte_order_unsigned() {
+		let input = Bytes::new(&[0x34, 0x12]);
+
+		let result = parse_bcd(2).parse(input).unwrap();
+
+		assert_eq!(result, 1234);
+	}
+
+	#[test]
+	fn test_maximum_lvar_unsigned() {
+		let input = Bytes::new(&[0x99; 9]);
+
+		let result = parse_bcd(9).parse(input).unwrap();
+
+		assert_eq!(result, 999_999_999_999_999_999);
+	}
+
+	#[test]
+	fn test_basic_signed() {
+		let input = Bytes::new(&[0xF1]);
+
+		let result = parse_bcd(1).parse(input).unwrap();
+
+		assert_eq!(result, -1);
+	}
+
+	#[test]
+	fn test_byte_order_signed() {
+		let input = Bytes::new(&[0x23, 0xF1]);
+
+		let result = parse_bcd(2).parse(input).unwrap();
+
+		assert_eq!(result, -123);
+	}
+
+	#[test]
+	fn test_maximum_lvar_signed() {
+		let mut data = [0x99; 9];
+		data[8] = 0xF9;
+		let input = Bytes::new(&data);
+
+		let result = parse_bcd(9).parse(input).unwrap();
+
+		assert_eq!(result, -99_999_999_999_999_999);
+	}
+
+	#[test]
+	fn test_negative_zero() {
+		let input = Bytes::new(&[0xF0]);
+
+		let result = parse_bcd(1).parse(input).unwrap();
+
+		assert_eq!(result, 0);
+	}
+
+	#[test]
+	#[should_panic(expected = "cannot parse 0 bytes")]
+	fn test_parse_zero() {
+		let input = Bytes::new(&[]);
+
+		let _ = parse_bcd(0).parse(input);
+	}
+
+	#[test]
+	#[should_panic(expected = "cannot safely parse more than 9 bytes")]
+	fn test_parse_ten() {
+		let input = Bytes::new(&[]);
+
+		let _ = parse_bcd(10).parse(input);
+	}
+
+	#[test]
+	fn test_parse_not_enough_data() {
+		let input = Bytes::new(&[0x12]);
+
+		let result = parse_bcd(2).parse(input).unwrap_err();
+
+		assert_eq!(result.inner().kind(), ErrorKind::Eof);
+	}
+
+	#[test]
+	fn test_parse_garbage() {
+		for byte in [
+			[0xAA],
+			[0xBB],
+			[0xCC],
+			[0xDD],
+			[0xEE],
+			[0xFF],
+			// 0xF0 is valid but 0x0F is not
+			[0x0F],
+		] {
+			let input = Bytes::new(&byte);
+
+			let result = parse_bcd(1).parse(input).unwrap_err();
+
+			assert_eq!(
+				result.inner().kind(),
+				ErrorKind::Verify,
+				"cannot parse invalid BCD byte {:#X}",
+				byte[0]
+			);
+		}
 	}
 }
 
