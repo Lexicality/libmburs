@@ -2,10 +2,11 @@
 // Licensed under the EUPL-1.2
 
 use encoding_rs::WINDOWS_1252;
+use winnow::binary;
 use winnow::combinator::repeat;
+use winnow::error::StrContext;
 use winnow::prelude::*;
 use winnow::stream::Bytes;
-use winnow::{binary, error::StrContext};
 
 use crate::parse::error::{MBResult, MBusError};
 

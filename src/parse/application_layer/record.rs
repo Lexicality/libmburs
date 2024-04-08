@@ -1,21 +1,21 @@
 // Copyright 2024 Lexi Robinson
 // Licensed under the EUPL-1.2
 
-use super::{dib::DataInfoBlock, vib::ValueInfoBlock};
-use crate::parse::application_layer::dib::RawDataType;
-use crate::parse::error::MBResult;
-use crate::parse::error::MBusError;
-use crate::parse::types::number::parse_bcd;
-use crate::parse::types::number::parse_binary_signed;
-use crate::parse::types::number::parse_binary_unsigned;
-use crate::parse::types::number::parse_real;
-use crate::parse::types::string::parse_latin1;
-use crate::parse::types::DataType;
 use winnow::binary;
 use winnow::combinator::repeat;
 use winnow::error::StrContext;
 use winnow::prelude::*;
 use winnow::Bytes;
+
+use crate::parse::error::{MBResult, MBusError};
+use crate::parse::types::number::{
+	parse_bcd, parse_binary_signed, parse_binary_unsigned, parse_real,
+};
+use crate::parse::types::string::parse_latin1;
+use crate::parse::types::DataType;
+
+use super::dib::{DataInfoBlock, RawDataType};
+use super::vib::ValueInfoBlock;
 
 #[derive(Debug)]
 pub struct Record {
