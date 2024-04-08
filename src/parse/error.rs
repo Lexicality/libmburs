@@ -49,14 +49,14 @@ pub type Result<T> = std::result::Result<T, ParseError>;
 /// Because the version of Winnow we're using doesn't let you use `ContextError`
 /// with the bit-level parsers I've had to wrap it in a struct I control so I
 /// can implement `ErrorConvert` and get it working again
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct MBusError(ContextError<StrContext>);
+#[derive(Debug, Clone, PartialEq)]
+pub struct MBusError(ContextError<StrContext>, ErrorKind);
 
 pub type MBResult<O> = PResult<O, MBusError>;
 
 impl MBusError {
 	pub fn new() -> Self {
-		Self(ContextError::new())
+		Self(ContextError::new(), ErrorKind::Fail)
 	}
 
 	pub fn context(&self) -> impl Iterator<Item = &StrContext> {
@@ -66,21 +66,31 @@ impl MBusError {
 	pub fn cause(&self) -> Option<&(dyn std::error::Error + Send + Sync + 'static)> {
 		self.0.cause()
 	}
+
+	pub fn kind(&self) -> ErrorKind {
+		self.1
+	}
+}
+
+impl Default for MBusError {
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl<I: Stream> ParserError<I> for MBusError {
 	fn append(self, input: &I, token_start: &<I as Stream>::Checkpoint, kind: ErrorKind) -> Self {
-		Self(self.0.append(input, token_start, kind))
+		Self(self.0.append(input, token_start, kind), kind)
 	}
 
 	fn from_error_kind(input: &I, kind: ErrorKind) -> Self {
-		Self(ContextError::from_error_kind(input, kind))
+		Self(ContextError::from_error_kind(input, kind), kind)
 	}
 }
 
 impl std::fmt::Display for MBusError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		self.0.fmt(f)
+		write!(f, "{}: {}", self.1, self.0)
 	}
 }
 
@@ -91,13 +101,13 @@ impl<I: Stream> AddContext<I, StrContext> for MBusError {
 		token_start: &<I as Stream>::Checkpoint,
 		context: StrContext,
 	) -> Self {
-		Self(self.0.add_context(input, token_start, context))
+		Self(self.0.add_context(input, token_start, context), self.1)
 	}
 }
 
 impl<I, E: std::error::Error + Send + Sync + 'static> FromExternalError<I, E> for MBusError {
 	fn from_external_error(input: &I, kind: ErrorKind, e: E) -> Self {
-		Self(ContextError::from_external_error(input, kind, e))
+		Self(ContextError::from_external_error(input, kind, e), kind)
 	}
 }
 
@@ -111,5 +121,11 @@ impl ErrorConvert<MBusError> for MBusError {
 impl<I: Stream + Clone> ErrorConvert<MBusError> for InputError<I> {
 	fn convert(self) -> MBusError {
 		MBusError::from_error_kind(&self.input, self.kind)
+	}
+}
+
+impl ErrorConvert<MBusError> for ContextError<StrContext> {
+	fn convert(self) -> MBusError {
+		MBusError(self, ErrorKind::Fail)
 	}
 }
