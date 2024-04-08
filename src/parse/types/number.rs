@@ -43,7 +43,7 @@ fn parse_bcd_nibble(input: &mut BitsInput<'_>) -> MBResult<i64> {
 pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 	let parser = move |input: &mut BitsInput<'a>| {
 		if bytes == 0 {
-			return Err(ErrMode::assert(input, "cannot parse 0 bytes"));
+			return Ok(0);
 		} else if bytes > 9 {
 			return Err(ErrMode::assert(
 				input,
@@ -156,11 +156,12 @@ mod test_parse_bcd {
 	}
 
 	#[test]
-	#[should_panic(expected = "cannot parse 0 bytes")]
 	fn test_parse_zero() {
 		let input = Bytes::new(&[]);
 
-		let _ = parse_bcd(0).parse(input);
+		let result = parse_bcd(0).parse(input).unwrap();
+
+		assert_eq!(result, 0);
 	}
 
 	#[test]
@@ -238,7 +239,7 @@ fn decode_bcd_digit(mut byte: u8) -> Result<u8> {
 pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 	move |input: &mut &'a Bytes| {
 		match bytes {
-			0 => Err(ErrMode::assert(input, "cannot parse 0 bytes")),
+			0 => Ok(0),
 			1 => binary::i8.map(|i| i.into()).parse_next(input),
 			2 => binary::le_i16.map(|i| i.into()).parse_next(input),
 			4 => binary::le_i32.map(|i| i.into()).parse_next(input),
@@ -373,11 +374,12 @@ mod test_parse_binary_signed {
 	}
 
 	#[test]
-	#[should_panic(expected = "cannot parse 0 bytes")]
 	fn test_parse_zero() {
 		let input = Bytes::new(&[]);
 
-		let _ = parse_binary_signed(0).parse(input);
+		let result = parse_binary_signed(0).parse(input).unwrap();
+
+		assert_eq!(result, 0);
 	}
 
 	#[test]
@@ -401,7 +403,7 @@ mod test_parse_binary_signed {
 pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl Parser<&'a Bytes, u64, MBusError> {
 	move |input: &mut &'a Bytes| {
 		match bytes {
-			0 => Err(ErrMode::assert(input, "cannot parse 0 bytes")),
+			0 => Ok(0),
 			1 => binary::u8.map(|i| i.into()).parse_next(input),
 			2 => binary::le_u16.map(|i| i.into()).parse_next(input),
 			4 => binary::le_u32.map(|i| i.into()).parse_next(input),
@@ -514,11 +516,12 @@ mod test_parse_binary_unsigned {
 	}
 
 	#[test]
-	#[should_panic(expected = "cannot parse 0 bytes")]
 	fn test_parse_zero() {
 		let input = Bytes::new(&[]);
 
-		let _ = parse_binary_unsigned(0).parse(input);
+		let result = parse_binary_unsigned(0).parse(input).unwrap();
+
+		assert_eq!(result, 0);
 	}
 
 	#[test]
