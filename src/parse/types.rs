@@ -3,10 +3,7 @@
 
 use winnow::Bytes;
 
-use super::error::Result;
-
 pub mod date;
-pub mod lvar;
 pub mod number;
 pub mod string;
 
@@ -28,7 +25,5 @@ pub enum DataType {
 	ManufacturerSpecific(Vec<u8>),
 	None,
 }
-
-pub type ParseResult = Result<DataType>;
 
 pub type BitsInput<'a> = (&'a Bytes, usize);
