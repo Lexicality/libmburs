@@ -8,7 +8,7 @@ use winnow::binary::bits;
 use winnow::error::{ErrMode, ParserError, StrContext};
 use winnow::Parser;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RawDataType {
 	None,
 	Binary(usize),

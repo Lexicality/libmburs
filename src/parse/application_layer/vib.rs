@@ -226,15 +226,4 @@ impl ValueType {
 		// TODO
 		false
 	}
-
-	pub fn is_date(&self) -> bool {
-		matches!(
-			self,
-			Self::TypeFDateTime
-				| Self::TypeGDate
-				| Self::TypeIDateTime
-				| Self::TypeJTime
-				| Self::TypeMDatetime
-		)
-	}
 }
