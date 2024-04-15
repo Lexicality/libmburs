@@ -6,8 +6,9 @@ use crate::parse::error::MBResult;
 use crate::parse::types::string::parse_length_prefix_ascii;
 use crate::parse::types::BitsInput;
 use winnow::binary::bits;
-use winnow::error::{ErrMode, ErrorKind, ParserError, StrContext};
+use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
 use winnow::prelude::*;
+use winnow::stream::Stream;
 
 const VIF_EXTENSION_1: u8 = 0b0111_1011;
 const VIF_EXTENSION_2: u8 = 0b0111_1101;
@@ -46,6 +47,7 @@ pub fn dump_remaining_vifes(input: &mut BitsInput<'_>) -> MBResult<Vec<u8>> {
 
 impl ValueInfoBlock {
 	pub fn parse(input: &mut BitsInput<'_>) -> MBResult<Self> {
+		let vif_checkpoint = input.checkpoint();
 		let (mut extension, raw_value) = parse_vif_byte
 			.context(StrContext::Label("initial VIF"))
 			.parse_next(input)?;
@@ -54,15 +56,27 @@ impl ValueInfoBlock {
 			value if value <= 0b0111_1010 => parse_table_10(value),
 			VIF_EXTENSION_1 | VIF_EXTENSION_2 => {
 				if !extension {
-					return Err(ErrMode::from_error_kind(input, ErrorKind::Verify));
+					return Err(
+						ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
+							input,
+							&vif_checkpoint,
+							StrContext::Label("vife missing for vif extension"),
+						),
+					);
 				}
+				let vife_checkpoint = input.checkpoint();
 				let value: u8;
 				(extension, value) = parse_vif_byte
 					.context(StrContext::Label("VIF extension byte"))
 					.parse_next(input)?;
 				if raw_value == VIF_EXTENSION_1 && value == VIF_EXTENSION_2 {
 					if !extension {
-						return Err(ErrMode::from_error_kind(input, ErrorKind::Verify));
+						return Err(ErrMode::from_error_kind(input, ErrorKind::Verify)
+							.add_context(
+								input,
+								&vife_checkpoint,
+								StrContext::Label("vife missing for vif extension level 2"),
+							));
 					}
 					let value: u8;
 					(extension, value) = parse_vif_byte
@@ -78,11 +92,21 @@ impl ValueInfoBlock {
 			VIF_ASCII => {
 				// We need to deal with any potential extensions before we can
 				// read the vif string, so chuck a placeholder in there
-				ValueType::PlainText(String::new())
+				Some(ValueType::PlainText(String::new()))
 			}
-			VIF_MANUFACTURER => ValueType::ManufacturerSpecific,
-			VIF_ANY => ValueType::Any,
-			_ => ValueType::Reserved,
+			VIF_MANUFACTURER => Some(ValueType::ManufacturerSpecific),
+			VIF_ANY => Some(ValueType::Any),
+			_ => None,
+		};
+
+		let Some(value_type) = value_type else {
+			return Err(
+				ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
+					input,
+					&vif_checkpoint,
+					StrContext::Label("reserved vif"),
+				),
+			);
 		};
 
 		// TODO: These should be parsed (except for the manufacturer!)
@@ -109,24 +133,24 @@ impl ValueInfoBlock {
 	}
 }
 
-fn parse_table_10(value: u8) -> ValueType {
-	match value {
+fn parse_table_10(value: u8) -> Option<ValueType> {
+	Some(match value {
 		0b0111_0100..=0b0111_0111 => {
 			ValueType::ActualityDuration(DurationType::decode_nn(value & DURATION_MASK))
 		}
 		_ => todo!("table 10 {value} {value:x} {value:b}"),
-	}
+	})
 }
 
-fn parse_table_12(value: u8) -> ValueType {
+fn parse_table_12(value: u8) -> Option<ValueType> {
 	todo!("table 12 {value} {value:x} {value:b}")
 }
 
-fn parse_table_13(value: u8) -> ValueType {
+fn parse_table_13(value: u8) -> Option<ValueType> {
 	todo!("table 13 {value} {value:x} {value:b}")
 }
 
-fn parse_table_14(value: u8) -> ValueType {
+fn parse_table_14(value: u8) -> Option<ValueType> {
 	todo!("table 14 {value} {value:x} {value:b}")
 }
 
