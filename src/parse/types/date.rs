@@ -22,7 +22,7 @@ fn parse_dmy(input: &mut BitsInput<'_>) -> MBResult<(u8, u8, u8)> {
 	.parse_next(input)?;
 	(
 		// Year lower bits
-		bits::take(3_usize).context(StrContext::Label("year (lower)")),
+		bits::take(3_usize).context(StrContext::Label("year (upper)")),
 		// Day
 		bits::take(5_usize)
 			.context(StrContext::Label("day"))
@@ -32,9 +32,9 @@ fn parse_dmy(input: &mut BitsInput<'_>) -> MBResult<(u8, u8, u8)> {
 			.context(StrContext::Label("month"))
 			.verify(|v| matches!(v, 1..=12 | 15)),
 		// Year upper bits
-		bits::take(4_usize).context(StrContext::Label("year (upper)")),
+		bits::take(4_usize).context(StrContext::Label("year (lower)")),
 	)
-		.map(|(yl, day, month, yu): (u8, u8, u8, u8)| (day, month, yl + (yu << 3)))
+		.map(|(yu, day, month, yl): (u8, u8, u8, u8)| (day, month, yl + (yu << 3)))
 		.verify(|(_, _, y)| matches!(y, 0..=99 | 127))
 		.parse_next(input)
 }
