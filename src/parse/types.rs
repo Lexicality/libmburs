@@ -19,6 +19,7 @@ pub enum DataType {
 	DateTimeI(date::TypeIDateTime), // type I
 	Date(date::TypeGDate),          // type G
 	Time(date::TypeJTime),          // Type J
+	DST(date::TypeKDST),            // Type K
 	String(String),
 	Invalid(Vec<u8>),
 	VariableLengthNumber(Vec<u8>),

@@ -9,7 +9,7 @@ use winnow::stream::Stream;
 use winnow::Bytes;
 
 use crate::parse::error::{MBResult, MBusError};
-use crate::parse::types::date::{TypeFDateTime, TypeGDate, TypeIDateTime, TypeJTime};
+use crate::parse::types::date::{TypeFDateTime, TypeGDate, TypeIDateTime, TypeJTime, TypeKDST};
 use crate::parse::types::number::{
 	parse_bcd, parse_binary_signed, parse_binary_unsigned, parse_real,
 };
@@ -44,6 +44,9 @@ impl Record {
 			}
 			ValueType::TypeJTime => {
 				parse_date(dib.raw_type, 3, TypeJTime::parse, input).map(DataType::Time)?
+			}
+			ValueType::DSTTypeK => {
+				parse_date(dib.raw_type, 4, TypeKDST::parse, input).map(DataType::DST)?
 			}
 			// TODO: I've commented this out as it means that these will simply
 			// parse as a large lvar number and it's the caller to parse it

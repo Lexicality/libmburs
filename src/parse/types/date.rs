@@ -224,3 +224,77 @@ impl TypeJTime {
 		.parse_next(input)
 	}
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct TypeKDST {
+	pub starts_hour: u8,
+	pub starts_day: u8,
+	pub starts_month: u8,
+	pub ends_day: u8,
+	pub ends_month: u8,
+	pub enable: bool,
+	pub dst_deviation: i8,
+	pub local_deviation: u8,
+}
+
+impl TypeKDST {
+	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
+		bits::bits::<_, _, MBusError, _, _>((
+			// byte 1
+			bits::take(3_usize).context(StrContext::Label("gmt deviation upper")),
+			bits::take(5_usize)
+				.context(StrContext::Label("hour begins"))
+				.verify(|v| matches!(v, 0..=23 | 31)),
+			// byte 2
+			bits::bool.context(StrContext::Label("enable")),
+			bits::take(2_usize).context(StrContext::Label("gmt deviation lower")),
+			bits::take(5_usize)
+				.context(StrContext::Label("day begins"))
+				.verify(|v| matches!(v, 1..=31)),
+			// byte 3
+			bits::bool.context(StrContext::Label("dst ±")),
+			bits::take(2_usize)
+				.context(StrContext::Label("dst deviation hours"))
+				.try_map(|v: u8| v.try_into()),
+			bits::take(5_usize)
+				.context(StrContext::Label("day ends"))
+				.verify(|v| matches!(v, 1..=31)),
+			// byte 4
+			bits::take(4_usize)
+				.context(StrContext::Label("month ends"))
+				.verify(|v| matches!(v, 1..=12)),
+			bits::take(4_usize)
+				.context(StrContext::Label("month begins"))
+				.verify(|v| matches!(v, 1..=12)),
+		))
+		.map(
+			|(
+				gmt_u,
+				starts_hour,
+				enable,
+				gmt_l,
+				starts_day,
+				dst_plus,
+				dst_deviation,
+				ends_day,
+				ends_month,
+				starts_month,
+			): (u8, u8, bool, u8, u8, bool, i8, u8, u8, u8)| Self {
+				starts_hour,
+				starts_day,
+				starts_month,
+				ends_day,
+				ends_month,
+				enable,
+				dst_deviation: if dst_plus {
+					dst_deviation
+				} else {
+					-dst_deviation
+				},
+				local_deviation: gmt_l + (gmt_u << 3),
+			},
+		)
+		.verify(|v| matches!(v.local_deviation, 0..=23 | 31))
+		.parse_next(input)
+	}
+}
