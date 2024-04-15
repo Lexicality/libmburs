@@ -187,67 +187,195 @@ impl DurationType {
 }
 
 #[derive(Debug)]
-pub enum Unit {
-	Bar,   // bar
-	C,     // °C
-	Feet3, // feet³
-	GJ,    // GJ
-	GJph,  // GJ/h
-	Hz,    // Hz
-	J,     // J
-	Jph,   // J/h
-	K,     // K
-	KVAR,  // kVAR
-	KVAh,  // kVAh
-	KVA,   // kVA
-	Kg,    // kg
-	Kvarh, // kvarh
-	M3,    // m³
-	MCal,  // MCal
-	KWh,   // kWh
-	MW,    // MW
-	MWh,   // MWh
-	Pct,   // %
-	T,     // t
-	W,     // W
-	Wh,    // Wh
+pub enum EnergyUnit {
+	Wh,   // Wh
+	J,    // J
+	MWh,  // MWh
+	MCal, // MCal
+	GJ,   // GJ
 }
 
 #[derive(Debug)]
+pub enum PowerUnit {
+	W,    // W
+	Jph,  // J/h
+	MW,   // MW
+	GJph, // GJ/h
+}
+
+#[derive(Debug)]
+pub enum VolumeUnit {
+	M3,    // m³
+	Feet3, // feet³
+}
+
+#[derive(Debug)]
+pub enum MassUnit {
+	Kg, // kg
+	T,  // t
+}
+
+pub type Exponent = i8;
+
+#[derive(Debug)]
 pub enum ValueType {
+	// Special
 	Any,
-	Reserved,
-	Unsupported,
 	PlainText(String),
 	ManufacturerSpecific,
-	Energy(Unit, i8),
-	Volume(Unit, i8),
-	Mass(Unit, i8),
+	// Table 10 - Primary VIF-codes
+	Energy(EnergyUnit, Exponent),
+	Volume(VolumeUnit, Exponent),
+	Mass(MassUnit, Exponent),
 	OnTime(DurationType),
-	Pressure(Unit, i8),
-	Power(Unit, i8),
-	VolumeFlow(Unit, DurationType, i8),
-	MassFlow(Unit, DurationType, i8),
-	FlowTemperature(Unit, i8),
-	ExternalTemperature(Unit, i8),
-	ReturnTemperature(Unit, i8),
-	TemperatureDifference(Unit, i8),
+	OperatingTime(DurationType),
+	Power(PowerUnit, Exponent),
+	VolumeFlow(DurationType, Exponent),
+	MassFlow(DurationType, Exponent),
+	FlowTemperature(Exponent),
+	ReturnTemperature(Exponent),
+	TemperatureDifference(Exponent),
+	ExternalTemperature(Exponent),
+	Pressure(Exponent),
+	TypeGDate,
+	TypeFDateTime,
+	TypeJTime,
+	TypeIDateTime,
+	TypeMDatetime,
+	HCA, // Heat cost allocators perhaps? Not explained
 	AveragingDuration(DurationType),
 	ActualityDuration(DurationType),
 	FabricationNumber,
-	HCA, // TODO: what
 	Address,
-	TypeFDateTime,
-	TypeGDate,
-	TypeIDateTime,
-	TypeJTime,
-	TypeMDatetime,
-	// TODO: But wait there's more
+	// Table 12 — Main VIFE-code extension table
+	Credit(Exponent),
+	Debit(Exponent),
+	UniqueMessageIdentification, // "Previously named Access number (transmission count)"
+	DeviceType,
+	Manufacturer,
+	ParameterSetIdentification,
+	ModelVersion,
+	HardwareVersionNumber,
+	MetrologyFirmwareVersionNumber,
+	OtherSoftwareVersionNumber,
+	CustomerLocation,
+	Customer,
+	AccessCodeUser,
+	AccessCodeOperator,
+	AccessCodeDeveloper,
+	Password,
+	ErrorFlags,
+	ErrorMask,
+	SecurityKey,
+	DigitalOutput,
+	DigitalInput,
+	BaudRate,
+	ResponseDelayTime,
+	Retry,
+	RemoteControl,
+	FirstStorageNumberForCyclicStorage,
+	LastStorageNumberForCyclicStorage,
+	SizeOfStorageBlock,
+	DescriptorForTariffAndSubunit,
+	StorageInterval(DurationType),
+	OperatorSpecific,
+	TimePointSecond,
+	DurationSinceLastReadout(DurationType),
+	StartDateTimeOfTariff, // What type of date? Unspecified. Good luck!
+	DurationOfTariff(DurationType),
+	PeriodOfTarrif(DurationType),
+	Dimensionless, // L + "no VIF"
+	WirelessContainer,
+	PeriodOfNominalDataTransmissions(DurationType),
+	Volts(Exponent),
+	Amperes(Exponent),
+	ResetCounter,
+	CumulationCounter,
+	ControlSignal,
+	DayOfWeek,
+	WeekNumber,
+	TimePointOfDayChange,
+	StateOfParameterActivation,
+	SpecialSupplierInformation,
+	DurationSinceLastCumulation(DurationType),
+	OperatingTimeBattery(DurationType),
+	DateAndTimeOfBatteryChange, // This is one of the date formats, you are instructed to guess which one based on the size of the data field
+	RFLevel,                    // dBm
+	DSTTypeK,
+	ListeningWindowManagement, // DataTypeL
+	RemainingBatteryLife(DurationType),
+	NumberTimesMeterStopped,
+	ManufacturerSpecificContainer,
+	// Table 13 — 2nd level VIFE code extension table
+	CurrentlySelectedApplication,
+	// Table 14 — Alternate extended VIF-code table
+	ReactiveEnergy(Exponent),
+	ApparentEnergy(Exponent),
+	ReactivePower(Exponent),
+	RelativeHumidity(Exponent),
+	PhaseUU, // "volt. to volt."
+	PhaseUI, // "volt. to current"
+	Frequency(Exponent),
+	ApparentPower(Exponent),
+	ColdWarmTemperatureLimit(Exponent),
+	CumulativeMaxOfActivePower(Exponent),
+	ResultingPowerFactorK,
+	ThermalOutputRatingFactorKq,
+	ThermalCouplingRatingFactorOverallKc,
+	ThermalCouplingRatingFactorRoomSideKcr,
+	ThermalCouplingRatingFactorHeaterSideKch,
+	LowTemperatureRatingFactorKt,
+	DisplayOutputScalingFactorKD,
 }
 
 impl ValueType {
 	pub fn is_unsigned(&self) -> bool {
-		// TODO
-		false
+		matches!(
+			self,
+			Self::UniqueMessageIdentification
+				| Self::DeviceType
+				| Self::Manufacturer
+				| Self::ParameterSetIdentification
+				| Self::ModelVersion
+				| Self::HardwareVersionNumber
+				| Self::MetrologyFirmwareVersionNumber
+				| Self::OtherSoftwareVersionNumber
+				| Self::CustomerLocation
+				| Self::Customer | Self::AccessCodeUser
+				| Self::AccessCodeOperator
+				| Self::AccessCodeDeveloper
+				| Self::Password | Self::ErrorMask
+				| Self::SecurityKey
+				| Self::BaudRate | Self::ResponseDelayTime
+				| Self::FirstStorageNumberForCyclicStorage
+				| Self::LastStorageNumberForCyclicStorage
+				| Self::SizeOfStorageBlock
+				| Self::DescriptorForTariffAndSubunit
+				| Self::TimePointSecond
+				| Self::DurationSinceLastReadout(_)
+				| Self::DurationOfTariff(_)
+				| Self::PeriodOfTarrif(_)
+				| Self::PeriodOfNominalDataTransmissions(_)
+				| Self::DayOfWeek
+				| Self::WeekNumber
+				| Self::StateOfParameterActivation
+				| Self::SpecialSupplierInformation
+				| Self::DurationSinceLastCumulation(_)
+				| Self::RemainingBatteryLife(_)
+				| Self::NumberTimesMeterStopped
+				| Self::RelativeHumidity(_)
+				| Self::ResultingPowerFactorK
+				| Self::ThermalCouplingRatingFactorHeaterSideKch
+				| Self::ThermalCouplingRatingFactorOverallKc
+				| Self::ThermalCouplingRatingFactorRoomSideKcr
+				| Self::ThermalOutputRatingFactorKq
+		)
+	}
+
+	pub fn is_boolean(&self) -> bool {
+		matches!(
+			self,
+			Self::ErrorFlags | Self::DigitalOutput | Self::DigitalInput | Self::RemoteControl
+		)
 	}
 }
