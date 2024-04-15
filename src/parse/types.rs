@@ -13,7 +13,7 @@ pub mod string;
 pub enum DataType {
 	Unsigned(u64),                  // Type A, C
 	Signed(i64),                    // Type A, B
-	Bool(bool),                     // Type D
+	Bool(bool),                     // Type D FIXME: Type D Boolean is actually a bitfield
 	Real(f32),                      // Type H
 	DateTimeF(date::TypeFDateTime), // Type F
 	DateTimeI(date::TypeIDateTime), // type I
