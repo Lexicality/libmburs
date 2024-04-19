@@ -5,6 +5,7 @@
 use crate::parse::error::MBResult;
 use crate::parse::types::string::parse_length_prefix_ascii;
 use crate::parse::types::BitsInput;
+use libmbus_macros::vif;
 use winnow::binary::bits;
 use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
 use winnow::prelude::*;
@@ -135,7 +136,7 @@ impl ValueInfoBlock {
 
 fn parse_table_10(value: u8) -> Option<ValueType> {
 	Some(match value {
-		0b0111_0100..=0b0111_0111 => {
+		vif!(E111 01nn) => {
 			ValueType::ActualityDuration(DurationType::decode_nn(value & DURATION_MASK))
 		}
 		_ => todo!("table 10 {value} {value:x} {value:b}"),

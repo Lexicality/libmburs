@@ -1,3 +1,7 @@
+[workspace]
+
+members = ["libmbus_macros"]
+
 [package]
 name = "libmbus"
 license = "EUPL-1.2"
@@ -10,3 +14,4 @@ edition = "2021"
 chrono = "0.4.23"
 encoding_rs = "0.8.32"
 winnow = "0.6.5"
+libmbus_macros = { path = "./libmbus_macros" }
