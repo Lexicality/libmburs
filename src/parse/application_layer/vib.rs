@@ -17,6 +17,10 @@ const VIF_ASCII: u8 = 0b011_1100;
 const VIF_MANUFACTURER: u8 = 0b0111_1111;
 const VIF_ANY: u8 = 0b0111_1110;
 
+const MASK_N: u8 = 0b0000_0001;
+const MASK_NN: u8 = 0b0000_0011;
+const MASK_NNN: u8 = 0b0000_0111;
+const MASK_NNNN: u8 = 0b0000_1111;
 const DURATION_MASK: u8 = 0b0000_0011;
 
 #[allow(dead_code)]
@@ -134,17 +138,49 @@ impl ValueInfoBlock {
 	}
 }
 
+fn exp(mask: u8, value: u8, offset: i8) -> Exponent {
+	(value & mask) as i8 + offset
+}
+
 fn parse_table_10(value: u8) -> Option<ValueType> {
 	Some(match value {
-		vif!(E111 01nn) => {
-			ValueType::ActualityDuration(DurationType::decode_nn(value & DURATION_MASK))
-		}
-		_ => todo!("table 10 {value} {value:x} {value:b}"),
+		vif!(E000 0nnn) => ValueType::Energy(EnergyUnit::Wh, exp(MASK_NNN, value, -3)),
+		vif!(E000 1nnn) => ValueType::Energy(EnergyUnit::J, exp(MASK_NNN, value, 0)),
+		vif!(E001 0nnn) => ValueType::Volume(VolumeUnit::M3, exp(MASK_NNN, value, -6)),
+		vif!(E001 1nnn) => ValueType::Mass(MassUnit::Kg, exp(MASK_NNN, value, -3)),
+		vif!(E010 00nn) => ValueType::OnTime(DurationType::decode_nn(value)),
+		vif!(E010 01nn) => ValueType::OperatingTime(DurationType::decode_nn(value)),
+		vif!(E010 1nnn) => ValueType::Power(PowerUnit::W, exp(MASK_NNN, value, -3)),
+		vif!(E011 0nnn) => ValueType::Power(PowerUnit::Jph, exp(MASK_NNN, value, 0)),
+		vif!(E011 1nnn) => ValueType::VolumeFlow(DurationType::Hours, exp(MASK_NNN, value, -6)),
+		vif!(E100 0nnn) => ValueType::VolumeFlow(DurationType::Minutes, exp(MASK_NNN, value, -7)),
+		vif!(E100 1nnn) => ValueType::VolumeFlow(DurationType::Seconds, exp(MASK_NNN, value, -9)),
+		vif!(E101 0nnn) => ValueType::MassFlow(DurationType::Hours, exp(MASK_NNN, value, -3)),
+		vif!(E101 10nn) => ValueType::FlowTemperature(exp(MASK_NN, value, -3)),
+		vif!(E101 11nn) => ValueType::ReturnTemperature(exp(MASK_NN, value, -3)),
+		vif!(E110 00nn) => ValueType::TemperatureDifference(exp(MASK_NN, value, -3)),
+		vif!(E110 01nn) => ValueType::ExternalTemperature(exp(MASK_NN, value, -3)),
+		vif!(E110 10nn) => ValueType::Pressure(exp(MASK_NN, value, -3)),
+		// 0b0110_1100..=0b0110_1101 => todo!("dates go here"),
+		0b0110_1100..=0b0110_1101 => ValueType::Any,
+		vif!(E110 1110) => ValueType::HCA,
+		vif!(E111 00nn) => ValueType::AveragingDuration(DurationType::decode_nn(value)),
+		vif!(E111 01nn) => ValueType::ActualityDuration(DurationType::decode_nn(value)),
+		vif!(E111 1000) => ValueType::FabricationNumber,
+		vif!(E111 1001) => ValueType::EnhancedIdentification,
+		vif!(E111 1010) => ValueType::Address,
+		_ => return None,
+		// _ => todo!("table 10 {value} {value:x} {value:b}"),
 	})
 }
 
 fn parse_table_12(value: u8) -> Option<ValueType> {
-	todo!("table 12 {value} {value:x} {value:b}")
+	Some(match value {
+		vif!(E011 01nn) => ValueType::PeriodOfTarrif(DurationType::decode_nn(value)),
+		vif!(E011 1000) => ValueType::PeriodOfTarrif(DurationType::Months),
+		vif!(E011 1001) => ValueType::PeriodOfTarrif(DurationType::Years),
+		_ => todo!("table 12 {value} {value:x} {value:b}"),
+	})
 }
 
 fn parse_table_13(value: u8) -> Option<ValueType> {
@@ -152,7 +188,10 @@ fn parse_table_13(value: u8) -> Option<ValueType> {
 }
 
 fn parse_table_14(value: u8) -> Option<ValueType> {
-	todo!("table 14 {value} {value:x} {value:b}")
+	Some(match value {
+		0b0000_0000..=0b0000_0001 => ValueType::Energy(EnergyUnit::MWh, exp(MASK_N, value, -1)),
+		_ => todo!("table 14 {value} {value:x} {value:b}"),
+	})
 }
 
 #[derive(Debug)]
@@ -167,7 +206,7 @@ pub enum DurationType {
 
 impl DurationType {
 	fn decode_nn(value: u8) -> Self {
-		match value {
+		match value & MASK_NN {
 			0b00 => Self::Seconds,
 			0b01 => Self::Minutes,
 			0b10 => Self::Hours,
@@ -177,7 +216,7 @@ impl DurationType {
 	}
 
 	fn decode_pp(value: u8) -> Self {
-		match value {
+		match value & MASK_NN {
 			0b00 => Self::Hours,
 			0b01 => Self::Days,
 			0b10 => Self::Months,
@@ -247,6 +286,7 @@ pub enum ValueType {
 	AveragingDuration(DurationType),
 	ActualityDuration(DurationType),
 	FabricationNumber,
+	EnhancedIdentification,
 	Address,
 	// Table 12 — Main VIFE-code extension table
 	Credit(Exponent),
