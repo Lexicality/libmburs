@@ -16,6 +16,10 @@ const VIF_ASCII: u8 = 0b011_1100;
 const VIF_MANUFACTURER: u8 = 0b0111_1111;
 const VIF_ANY: u8 = 0b0111_1110;
 
+const MASK_N: u8 = 0b0000_0001;
+const MASK_NN: u8 = 0b0000_0011;
+const MASK_NNN: u8 = 0b0000_0111;
+const MASK_NNNN: u8 = 0b0000_1111;
 const DURATION_MASK: u8 = 0b0000_0011;
 
 #[allow(dead_code)]
@@ -133,17 +137,34 @@ impl ValueInfoBlock {
 	}
 }
 
+fn exp(mask: u8, value: u8, offset: i8) -> Exponent {
+	(value & mask) as i8 + offset
+}
+
+const fn mask_range(base: u8, mask: u8) -> std::ops::RangeInclusive<u8> {
+	base & (!mask)..=base | mask
+}
+
 fn parse_table_10(value: u8) -> Option<ValueType> {
 	Some(match value {
-		0b0111_0100..=0b0111_0111 => {
-			ValueType::ActualityDuration(DurationType::decode_nn(value & DURATION_MASK))
-		}
+		0b0000_0000..=0b0000_0111 => ValueType::Energy(EnergyUnit::Wh, exp(MASK_NNN, value, -3)),
+		0b0000_1000..=0b0000_1111 => ValueType::Energy(EnergyUnit::J, exp(MASK_NNN, value, 0)),
+		0b0001_0000..=0b0001_0111 => ValueType::Volume(VolumeUnit::M3, exp(MASK_NNN, value, -6)),
+		0b0001_1000..=0b0001_1111 => ValueType::Mass(MassUnit::Kg, exp(MASK_NNN, value, -3)),
+
+		0b0101_1000..=0b0101_1011 => ValueType::FlowTemperature(exp(MASK_NN, value, -3)),
+		0b0111_0100..=0b0111_0111 => ValueType::ActualityDuration(DurationType::decode_nn(value)),
 		_ => todo!("table 10 {value} {value:x} {value:b}"),
 	})
 }
 
 fn parse_table_12(value: u8) -> Option<ValueType> {
-	todo!("table 12 {value} {value:x} {value:b}")
+	Some(match value {
+		0b0011_0100..=0b0011_0111 => ValueType::PeriodOfTarrif(DurationType::decode_nn(value)),
+		0b0011_1000 => ValueType::PeriodOfTarrif(DurationType::Months),
+		0b0011_1001 => ValueType::PeriodOfTarrif(DurationType::Years),
+		_ => todo!("table 12 {value} {value:x} {value:b}"),
+	})
 }
 
 fn parse_table_13(value: u8) -> Option<ValueType> {
@@ -151,7 +172,10 @@ fn parse_table_13(value: u8) -> Option<ValueType> {
 }
 
 fn parse_table_14(value: u8) -> Option<ValueType> {
-	todo!("table 14 {value} {value:x} {value:b}")
+	Some(match value {
+		0b0000_0000..=0b0000_0001 => ValueType::Energy(EnergyUnit::MWh, exp(MASK_N, value, -1)),
+		_ => todo!("table 14 {value} {value:x} {value:b}"),
+	})
 }
 
 #[derive(Debug)]
@@ -166,7 +190,7 @@ pub enum DurationType {
 
 impl DurationType {
 	fn decode_nn(value: u8) -> Self {
-		match value {
+		match value & MASK_NN {
 			0b00 => Self::Seconds,
 			0b01 => Self::Minutes,
 			0b10 => Self::Hours,
@@ -176,7 +200,7 @@ impl DurationType {
 	}
 
 	fn decode_pp(value: u8) -> Self {
-		match value {
+		match value & MASK_NN {
 			0b00 => Self::Hours,
 			0b01 => Self::Days,
 			0b10 => Self::Months,
