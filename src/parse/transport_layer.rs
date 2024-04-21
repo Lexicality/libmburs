@@ -4,4 +4,4 @@ pub mod control_info;
 pub mod header;
 pub mod manufacturer;
 
-pub use control_info::CICode;
+pub use control_info::MBusMessage;

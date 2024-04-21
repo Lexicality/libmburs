@@ -10,6 +10,7 @@ use winnow::stream::Stream;
 use winnow::Bytes;
 
 use super::error::{MBResult, MBusError};
+use super::transport_layer::MBusMessage;
 
 const LONG_FRAME_HEADER: u8 = 0x68;
 const SHORT_FRAME_HEADER: u8 = 0x10;
@@ -113,7 +114,7 @@ impl Control {
 }
 
 #[derive(Debug)]
-pub enum Packet<'a> {
+pub enum Packet {
 	Ack,
 	Short {
 		control: Control,
@@ -122,11 +123,11 @@ pub enum Packet<'a> {
 	Long {
 		control: Control,
 		address: u8,
-		data: &'a [u8],
+		message: MBusMessage,
 	},
 }
 
-fn parse_variable<'a>(input: &mut &'a Bytes) -> MBResult<Packet<'a>> {
+fn parse_variable(input: &mut &Bytes) -> MBResult<Packet> {
 	let length = binary::u8
 		.context(StrContext::Label("length"))
 		.parse_next(input)?;
@@ -183,14 +184,18 @@ fn parse_variable<'a>(input: &mut &'a Bytes) -> MBResult<Packet<'a>> {
 		);
 	}
 
+	let mut data = Bytes::new(data);
+
+	let message = MBusMessage::parse.parse_next(&mut data)?;
+
 	Ok(Packet::Long {
 		control,
 		address,
-		data,
+		message,
 	})
 }
 
-fn parse_fixed<'a>(input: &mut &'a Bytes) -> MBResult<Packet<'a>> {
+fn parse_fixed(input: &mut &Bytes) -> MBResult<Packet> {
 	// mbus's fixed length datagrams are 2 bytes long, only control & address
 	let ((control, raw_control), address, checksum, _) = (
 		Control::parse
@@ -217,12 +222,12 @@ fn parse_fixed<'a>(input: &mut &'a Bytes) -> MBResult<Packet<'a>> {
 	Ok(Packet::Short { control, address })
 }
 
-fn parse_ack<'a>(_input: &mut &'a Bytes) -> MBResult<Packet<'a>> {
+fn parse_ack(_input: &mut &Bytes) -> MBResult<Packet> {
 	Ok(Packet::Ack)
 }
 
-impl<'a> Packet<'a> {
-	pub fn parse(input: &mut &'a Bytes) -> MBResult<Packet<'a>> {
+impl<'a> Packet {
+	pub fn parse(input: &mut &'a Bytes) -> MBResult<Packet> {
 		alt((
 			preceded(
 				LONG_FRAME_HEADER.void(),

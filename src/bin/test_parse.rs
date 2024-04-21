@@ -4,9 +4,7 @@ use std::error;
 
 use winnow::{Bytes, Parser};
 
-use libmbus::parse::application_layer::frame::Frame;
 use libmbus::parse::link_layer::Packet;
-use libmbus::parse::transport_layer::CICode;
 
 fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 	let data = std::fs::read(fname).map_err(Box::new)?;
@@ -15,24 +13,7 @@ fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 		.parse(Bytes::new(&data[..]))
 		.map_err(|e| e.into_inner().to_string())?;
 
-	println!("{packet:?}");
-
-	match packet {
-		Packet::Long { data, .. } => {
-			let mut data = Bytes::new(data);
-			let ci = CICode::parse
-				.parse_next(&mut data)
-				.map_err(|e| e.to_string())?;
-			println!("{ci:#?}");
-
-			let frame = Frame::parse
-				.parse(data)
-				.map_err(|e| e.into_inner().to_string())?;
-
-			println!("{frame:#?}");
-		}
-		_ => todo!(),
-	}
+	println!("{packet:#?}");
 	Ok(())
 }
 

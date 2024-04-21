@@ -7,6 +7,7 @@ use winnow::error::StrContext;
 use winnow::prelude::*;
 use winnow::Bytes;
 
+use crate::parse::application_layer::frame::Frame;
 use crate::parse::error::MBResult;
 
 use super::header::LongHeader;
@@ -25,12 +26,12 @@ pub enum BaudRate {
 }
 
 #[derive(Debug)]
-pub enum CICode {
+pub enum MBusMessage {
 	Dlms(u8, TPLHeader), // TODO: Unsupported "see EN 13757–1"
 	Reserved,
 	ApplicationReset(TPLHeader), // or "Select To Device", EN 13757–3:2018, Clause 7
 	CommandToDevice(TPLHeader),  // EN 13757–3:2018, Clause 6
-	ResponseFromDevice(TPLHeader), // EN 13757–3:2018, Clause 6, Annex G
+	ResponseFromDevice(TPLHeader, Frame), // EN 13757–3:2018, Clause 6, Annex G
 	SelectionOfDevice,           // EN 13757-7:2018, Clause 8.4
 	SelectedApplicationRequest(TPLHeader), // EN 13757–3:2018, Clause 7
 	SelectedApplicationResponse(TPLHeader), // EN 13757–3:2018, Clause 7
@@ -48,16 +49,18 @@ pub enum CICode {
 	SecurityTransfer(u8), // TODO: Unsupported - EN 13757–3:2018, Annex A
 }
 
-impl CICode {
-	pub fn parse(input: &mut &Bytes) -> MBResult<CICode> {
+impl MBusMessage {
+	pub fn parse(input: &mut &Bytes) -> MBResult<MBusMessage> {
 		let ci = binary::u8
 			.context(StrContext::Label("CI field"))
 			.parse_next(input)?;
 
-		let mut parse_long_header = LongHeader::parse.context(StrContext::Label("long header"));
+		let parse_long_header = LongHeader::parse.context(StrContext::Label("long header"));
 
 		Ok(match ci {
-			0x72 => CICode::ResponseFromDevice(parse_long_header.parse_next(input)?),
+			0x72 => (parse_long_header, Frame::parse)
+				.map(|(header, frame)| MBusMessage::ResponseFromDevice(header, frame))
+				.parse_next(input)?,
 			_ => todo!(),
 		})
 	}
