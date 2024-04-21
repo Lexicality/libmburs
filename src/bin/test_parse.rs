@@ -1,13 +1,12 @@
 // Copyright 2023 Lexi Robinson
 // Licensed under the EUPL-1.2
+use std::error;
 
-use libmbus::parse::application_layer::record::Record;
+use winnow::{Bytes, Parser};
+
+use libmbus::parse::application_layer::frame::Frame;
 use libmbus::parse::link_layer::Packet;
 use libmbus::parse::transport_layer::CICode;
-use std::error;
-use winnow::combinator::repeat;
-use winnow::error::StrContext;
-use winnow::{Bytes, Parser};
 
 fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 	let data = std::fs::read(fname).map_err(Box::new)?;
@@ -23,12 +22,11 @@ fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 				.map_err(|e| e.to_string())?;
 			println!("{ci:#?}");
 
-			let records = repeat::<_, _, Vec<_>, _, _>(.., Record::parse)
-				.context(StrContext::Label("first record"))
-				.parse_next(&mut data)
-				.map_err(|e| e.to_string())?;
+			let frame = Frame::parse
+				.parse(data)
+				.map_err(|e| e.into_inner().to_string())?;
 
-			println!("{records:?}");
+			println!("{frame:#?}");
 		}
 		_ => todo!(),
 	}

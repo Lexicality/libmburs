@@ -3,6 +3,7 @@
 
 use super::record::Record;
 use crate::parse::error::MBResult;
+use winnow::binary;
 use winnow::combinator::{alt, eof, repeat, repeat_till};
 use winnow::error::StrContext;
 use winnow::prelude::*;
@@ -19,29 +20,35 @@ pub struct Frame {
 
 impl Frame {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
-		let (records, more_data_follows) = repeat_till(
-			1..,
-			(
-				repeat::<_, _, (), _, _>(0.., IDLE_FILLER),
-				Record::parse.context(StrContext::Label("frame record")),
-			)
-				.map(|(_, record)| record),
-			alt((
-				// The frame can simply end on a record boundary indicating no
-				// more records
-				eof.map(|_| false),
-				// Or it can have one of the following bytes
-				0x1F.map(|_| true),
-				// Though it's not legal for this one to exist without some data after it
-				0x0F.map(|_| false),
-			)),
+		(
+			repeat_till(
+				1..,
+				(
+					repeat::<_, _, (), _, _>(0.., IDLE_FILLER),
+					Record::parse.context(StrContext::Label("frame record")),
+				)
+					.map(|(_, record)| record),
+				alt((
+					// The frame can simply end on a record boundary indicating no
+					// more records
+					eof.map(|_| false),
+					// Or it can have one of the following bytes
+					0x1F.map(|_| true),
+					// Though it's not legal for this one to exist without some data after it
+					0x0F.map(|_| false),
+				))
+				.context(StrContext::Label("end of records marker")),
+			),
+			repeat::<_, _, Vec<_>, _, _>(0.., binary::u8)
+				.context(StrContext::Label("manufacturer specific data")),
 		)
-		.parse_next(input)?;
-
-		Ok(Self {
-			records,
-			more_data_follows,
-			manufacturer_specific: input.iter().copied().collect(),
-		})
+			.map(
+				|((records, more_data_follows), manufacturer_specific)| Self {
+					records,
+					more_data_follows,
+					manufacturer_specific,
+				},
+			)
+			.parse_next(input)
 	}
 }
