@@ -14,6 +14,9 @@ fn do_file(fname: &str) -> Result<(), Box<dyn error::Error>> {
 	let packet: Packet = Packet::parse
 		.parse(Bytes::new(&data[..]))
 		.map_err(|e| e.into_inner().to_string())?;
+
+	println!("{packet:?}");
+
 	match packet {
 		Packet::Long { data, .. } => {
 			let mut data = Bytes::new(data);
