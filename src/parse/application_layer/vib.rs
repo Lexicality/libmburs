@@ -170,7 +170,6 @@ fn parse_table_10(value: u8) -> Option<ValueType> {
 		vif!(E111 1001) => ValueType::EnhancedIdentification,
 		vif!(E111 1010) => ValueType::Address,
 		_ => return None,
-		// _ => todo!("table 10 {value} {value:x} {value:b}"),
 	})
 }
 

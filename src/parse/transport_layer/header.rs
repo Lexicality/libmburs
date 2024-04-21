@@ -205,7 +205,7 @@ impl DeviceType {
 				0x07 => DeviceType::WaterMeter(WaterMeterType::Potable),
 				0x08 => DeviceType::HeatCostAllocator,
 				// TODO
-				_ => todo!(),
+				_ => todo!("Device type {v}"),
 				// _ => DeviceType::Reserved,
 			})
 			.parse_next(input)
