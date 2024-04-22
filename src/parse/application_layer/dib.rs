@@ -30,6 +30,7 @@ impl RawDataType {
 				0b0101 => Some(Self::Real),
 				0b1101 => Some(Self::LVAR),
 				0b1000 => None, // TODO: I have no idea what "Selection for readout" means
+				0b1111 => None, // "This should never happen" but triggering a parse error is better than crashing
 				_ => unreachable!(),
 			})
 			.parse_next(input)
