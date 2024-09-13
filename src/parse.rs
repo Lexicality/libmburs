@@ -13,7 +13,9 @@ mod test_parse {
 	use winnow::prelude::*;
 	use winnow::Bytes;
 
+	use crate::parse::error::MBusError;
 	use crate::parse::link_layer::Packet;
+	use crate::utils::fancy_error;
 	use crate::utils::read_test_file;
 
 	#[rstest]
@@ -96,10 +98,19 @@ mod test_parse {
 			"ZRM_Minol-Minocal-C2.hex"
 		)]
 		filename: &str,
-	) {
+	) -> Result<(), MBusError> {
 		let data = read_test_file(&format!("./libmbus_test_data/test-frames/{filename}"))
 			.expect("test file must be valid");
 
-		Packet::parse.parse(Bytes::new(&data[..])).unwrap();
+		let result = Packet::parse.parse(Bytes::new(&data[..]));
+		match result {
+			Ok(_) => Ok(()),
+			Err(e) => {
+				let e = e.into_inner();
+				eprintln!("Test failed:");
+				fancy_error(&e);
+				Err(e)
+			}
+		}
 	}
 }
