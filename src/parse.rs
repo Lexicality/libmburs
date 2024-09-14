@@ -107,7 +107,7 @@ mod test_parse {
 			Ok(_) => Ok(()),
 			Err(e) => {
 				let e = e.into_inner();
-				eprintln!("Test failed:");
+				eprint!("{filename} failed: ");
 				fancy_error(&e);
 				Err(e)
 			}
