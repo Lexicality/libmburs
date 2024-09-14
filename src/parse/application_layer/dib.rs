@@ -66,6 +66,15 @@ pub struct DataInfoBlock {
 	pub storage: u64,
 	pub tariff: u32,
 	pub device: u16,
+	/// EN 13757-3:2018 6.3.5:
+	/// > Some meters require the assignment of historical values (like
+	/// > consumption values) to register numbers that are represented by OBIS
+	/// > value group F values. In this case the storage number is used to
+	/// > indicate the register number
+	///
+	/// If you know what this means and what I should be doing with this
+	/// information, please let me know and I'll update the code.
+	pub is_obis: bool,
 }
 
 impl DataInfoBlock {
@@ -79,6 +88,7 @@ impl DataInfoBlock {
 			.context(StrContext::Label("DIF byte"))
 			.parse_next(input)?;
 
+		let mut is_obis = false;
 		let mut tariff = 0;
 		let mut device = 0;
 
@@ -103,7 +113,8 @@ impl DataInfoBlock {
 
 			// TODO: Perhaps this should be a warning rather than an error?
 			if !extension && dife_device == 0 && dife_tariff == 0 && dife_storage == 0 {
-				return Err(ErrMode::assert(input, "OBIS registers aren't supported"));
+				is_obis = true;
+				break;
 			}
 
 			dife_device <<= i;
@@ -122,6 +133,7 @@ impl DataInfoBlock {
 			storage,
 			tariff,
 			device,
+			is_obis,
 		})
 	}
 }
