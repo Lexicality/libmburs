@@ -57,14 +57,9 @@ impl ValueInfoBlock {
 			.context(StrContext::Label("initial VIF"))
 			.parse_next(input)?;
 
-		let mut vif_context = "VIF";
-
-		let value_type = match raw_value {
-			value if value <= 0b0111_1010 => {
-				vif_context = "VIF in table 10";
-				parse_table_10(value)
-			}
-			VIF_EXTENSION_1 | VIF_EXTENSION_2 => {
+		let value_type = match (extension, raw_value) {
+			(_, value) if value <= 0b0111_1010 => parse_table_10(value),
+			(true, VIF_EXTENSION_1 | VIF_EXTENSION_2) => {
 				if !extension {
 					return Err(
 						ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
@@ -92,17 +87,14 @@ impl ValueInfoBlock {
 					(extension, value) = parse_vif_byte
 						.context(StrContext::Label("VIF extension layer 2 byte"))
 						.parse_next(input)?;
-					vif_context = "VIF in table 13";
 					parse_table_13(value)
 				} else if raw_value == VIF_EXTENSION_2 {
-					vif_context = "VIF in table 12";
 					parse_table_12(value)
 				} else {
-					vif_context = "VIF in table 14";
 					parse_table_14(value)
 				}
 			}
-			VIF_ASCII => {
+			(_, VIF_ASCII) => {
 				// TODO: EN 13757-3:2018 Annex C.2 strongly suggests
 				// (but doesn't actually explicitly say) that the ascii text
 				// should follow the VIFEs, but the test data from libmbus has
@@ -110,26 +102,14 @@ impl ValueInfoBlock {
 				//
 				// Since this is the only examples of plain text VIF data I
 				// have, I'm going to have to trust it, but I'm very confused
-				Some(
-					bits::bytes(parse_length_prefix_ascii)
-						.map(ValueType::PlainText)
-						.context(StrContext::Label("plain text VIF data"))
-						.parse_next(input)?,
-				)
+				bits::bytes(parse_length_prefix_ascii)
+					.map(ValueType::PlainText)
+					.context(StrContext::Label("plain text VIF data"))
+					.parse_next(input)?
 			}
-			VIF_MANUFACTURER => Some(ValueType::ManufacturerSpecific),
-			VIF_ANY => Some(ValueType::Any),
-			_ => None,
-		};
-
-		let Some(value_type) = value_type else {
-			return Err(
-				ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
-					input,
-					&vif_checkpoint,
-					StrContext::Label(vif_context),
-				),
-			);
+			(_, VIF_MANUFACTURER) => ValueType::ManufacturerSpecific,
+			(_, VIF_ANY) => ValueType::Any,
+			(_, invalid_value) => ValueType::Invalid(invalid_value),
 		};
 
 		// TODO: These should be parsed (except for the manufacturer!)
@@ -150,8 +130,8 @@ fn exp(mask: u8, value: u8, offset: i8) -> Exponent {
 	(value & mask) as i8 + offset
 }
 
-fn parse_table_10(value: u8) -> Option<ValueType> {
-	Some(match value {
+fn parse_table_10(value: u8) -> ValueType {
+	match value {
 		vif!(E000 0nnn) => ValueType::Energy(EnergyUnit::Wh, exp(MASK_NNN, value, -3)),
 		vif!(E000 1nnn) => ValueType::Energy(EnergyUnit::J, exp(MASK_NNN, value, 0)),
 		vif!(E001 0nnn) => ValueType::Volume(VolumeUnit::M3, exp(MASK_NNN, value, -6)),
@@ -177,12 +157,12 @@ fn parse_table_10(value: u8) -> Option<ValueType> {
 		vif!(E111 1000) => ValueType::FabricationNumber,
 		vif!(E111 1001) => ValueType::EnhancedIdentification,
 		vif!(E111 1010) => ValueType::Address,
-		_ => return None,
-	})
+		_ => ValueType::ReservedCode(VIFTable::Table10, value),
+	}
 }
 
-fn parse_table_12(value: u8) -> Option<ValueType> {
-	Some(match value {
+fn parse_table_12(value: u8) -> ValueType {
+	match value {
 		vif!(E000 00nn) => ValueType::Credit(exp(MASK_NN, value, -3)),
 		vif!(E000 01nn) => ValueType::Debit(exp(MASK_NN, value, -3)),
 		vif!(E000 1000) => ValueType::UniqueMessageIdentification,
@@ -250,22 +230,22 @@ fn parse_table_12(value: u8) -> Option<ValueType> {
 		vif!(E111 0100) => ValueType::RemainingBatteryLife(DurationType::Days),
 		vif!(E111 0101) => ValueType::NumberTimesMeterStopped,
 		vif!(E111 0110) => ValueType::ManufacturerSpecificContainer,
-		_ => return None,
-	})
+		_ => ValueType::ReservedCode(VIFTable::Table12, value),
+	}
 }
 
-fn parse_table_13(value: u8) -> Option<ValueType> {
-	Some(match value {
+fn parse_table_13(value: u8) -> ValueType {
+	match value {
 		vif!(E000 0000) => ValueType::CurrentlySelectedApplication,
 		vif!(E000 0010) => ValueType::RemainingBatteryLife(DurationType::Months),
 		vif!(E000 0011) => ValueType::RemainingBatteryLife(DurationType::Years),
-		_ => return None,
-	})
+		_ => ValueType::ReservedCode(VIFTable::Table13, value),
+	}
 }
 
-fn parse_table_14(value: u8) -> Option<ValueType> {
+fn parse_table_14(value: u8) -> ValueType {
 	// "These codes were used until 2004, now they are reserved for future use."
-	Some(match value {
+	match value {
 		vif!(E000 000n) => ValueType::Energy(EnergyUnit::MWh, exp(MASK_N, value, -1)),
 		vif!(E000 001n) => ValueType::ReactiveEnergy(exp(MASK_N, value, 0)),
 		vif!(E000 010n) => ValueType::ApparentEnergy(exp(MASK_N, value, 0)),
@@ -277,14 +257,14 @@ fn parse_table_14(value: u8) -> Option<ValueType> {
 		vif!(E001 101n) => ValueType::RelativeHumidity(exp(MASK_N, value, -1)),
 		vif!(E010 0000) => ValueType::Volume(VolumeUnit::Feet3, 0),
 		vif!(E010 0001) => ValueType::Volume(VolumeUnit::Feet3, -1), // The table says "0,1 feet³" and I don't know what that means
-		0b0010_0010..=0b0010_0110 => ValueType::RetiredCode(value),
+		0b0010_0010..=0b0010_0110 => ValueType::RetiredCode(VIFTable::Table14, value),
 		vif!(E010 100n) => ValueType::Power(PowerUnit::MW, exp(MASK_N, value, -1)),
 		vif!(E010 1010) => ValueType::PhaseUU,
 		vif!(E010 1011) => ValueType::PhaseUI,
 		vif!(E010 11nn) => ValueType::Frequency(exp(MASK_NN, value, -3)),
 		vif!(E011 000n) => ValueType::Power(PowerUnit::GJph, exp(MASK_N, value, -1)),
 		vif!(E011 01nn) => ValueType::ApparentPower(exp(MASK_NN, value, -1)),
-		0b0101_1000..=0b0110_0111 => ValueType::RetiredCode(value),
+		0b0101_1000..=0b0110_0111 => ValueType::RetiredCode(VIFTable::Table14, value),
 		vif!(E110 1000) => ValueType::ResultingPowerFactorK,
 		vif!(E110 1001) => ValueType::ThermalOutputRatingFactorKq,
 		vif!(E110 1010) => ValueType::ThermalCouplingRatingFactorOverallKc,
@@ -292,11 +272,19 @@ fn parse_table_14(value: u8) -> Option<ValueType> {
 		vif!(E110 1100) => ValueType::ThermalCouplingRatingFactorHeaterSideKch,
 		vif!(E110 1101) => ValueType::LowTemperatureRatingFactorKt,
 		vif!(E110 1110) => ValueType::DisplayOutputScalingFactorKD,
-		vif!(E111 00nn) => ValueType::RetiredCode(value),
+		vif!(E111 00nn) => ValueType::RetiredCode(VIFTable::Table14, value),
 		vif!(E111 01nn) => ValueType::ColdWarmTemperatureLimit(exp(MASK_NN, value, -3)),
 		vif!(E111 1nnn) => ValueType::CumulativeMaxOfActivePower(exp(MASK_NNN, value, -3)),
-		_ => return None,
-	})
+		_ => ValueType::ReservedCode(VIFTable::Table14, value),
+	}
+}
+
+#[derive(Debug)]
+pub enum VIFTable {
+	Table10,
+	Table12,
+	Table13,
+	Table14,
 }
 
 #[derive(Debug)]
@@ -368,7 +356,11 @@ pub enum ValueType {
 	Any,
 	PlainText(String),
 	ManufacturerSpecific,
-	RetiredCode(u8), // "These codes were used until 2004, now they are reserved for future use."
+	RetiredCode(VIFTable, u8), // "These codes were used until 2004, now they are reserved for future use."
+	// These two are for compatability with libmbus, any dataframe with these
+	// values is strictly invalid, but it just keeps on trucking anyway
+	ReservedCode(VIFTable, u8),
+	Invalid(u8),
 	// Table 10 - Primary VIF-codes
 	Energy(EnergyUnit, Exponent),
 	Volume(VolumeUnit, Exponent),
