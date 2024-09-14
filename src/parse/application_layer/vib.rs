@@ -57,8 +57,13 @@ impl ValueInfoBlock {
 			.context(StrContext::Label("initial VIF"))
 			.parse_next(input)?;
 
+		let mut vif_context = "VIF";
+
 		let value_type = match raw_value {
-			value if value <= 0b0111_1010 => parse_table_10(value),
+			value if value <= 0b0111_1010 => {
+				vif_context = "VIF in table 10";
+				parse_table_10(value)
+			}
 			VIF_EXTENSION_1 | VIF_EXTENSION_2 => {
 				if !extension {
 					return Err(
@@ -74,7 +79,7 @@ impl ValueInfoBlock {
 				(extension, value) = parse_vif_byte
 					.context(StrContext::Label("VIF extension byte"))
 					.parse_next(input)?;
-				if raw_value == VIF_EXTENSION_1 && value == VIF_EXTENSION_2 {
+				if raw_value == VIF_EXTENSION_2 && value == VIF_EXTENSION_2 {
 					if !extension {
 						return Err(ErrMode::from_error_kind(input, ErrorKind::Verify)
 							.add_context(
@@ -87,10 +92,13 @@ impl ValueInfoBlock {
 					(extension, value) = parse_vif_byte
 						.context(StrContext::Label("VIF extension layer 2 byte"))
 						.parse_next(input)?;
+					vif_context = "VIF in table 13";
 					parse_table_13(value)
-				} else if raw_value == VIF_EXTENSION_1 {
+				} else if raw_value == VIF_EXTENSION_2 {
+					vif_context = "VIF in table 12";
 					parse_table_12(value)
 				} else {
+					vif_context = "VIF in table 14";
 					parse_table_14(value)
 				}
 			}
@@ -109,7 +117,7 @@ impl ValueInfoBlock {
 				ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
 					input,
 					&vif_checkpoint,
-					StrContext::Label("reserved vif"),
+					StrContext::Label(vif_context),
 				),
 			);
 		};
@@ -175,21 +183,119 @@ fn parse_table_10(value: u8) -> Option<ValueType> {
 
 fn parse_table_12(value: u8) -> Option<ValueType> {
 	Some(match value {
+		vif!(E000 00nn) => ValueType::Credit(exp(MASK_NN, value, -3)),
+		vif!(E000 01nn) => ValueType::Debit(exp(MASK_NN, value, -3)),
+		vif!(E000 1000) => ValueType::UniqueMessageIdentification,
+		vif!(E000 1001) => ValueType::DeviceType,
+		vif!(E000 1010) => ValueType::Manufacturer,
+		vif!(E000 1011) => ValueType::ParameterSetIdentification,
+		vif!(E000 1100) => ValueType::ModelVersion,
+		vif!(E000 1101) => ValueType::HardwareVersionNumber,
+		vif!(E000 1110) => ValueType::MetrologyFirmwareVersionNumber,
+		vif!(E000 1111) => ValueType::OtherSoftwareVersionNumber,
+		vif!(E001 0000) => ValueType::CustomerLocation,
+		vif!(E001 0001) => ValueType::Customer,
+		vif!(E001 0010) => ValueType::AccessCodeUser,
+		vif!(E001 0011) => ValueType::AccessCodeOperator,
+		vif!(E001 0100) => ValueType::AccessCodeSystemOperator,
+		vif!(E001 0101) => ValueType::AccessCodeDeveloper,
+		vif!(E001 0110) => ValueType::Password,
+		vif!(E001 0111) => ValueType::ErrorFlags,
+		vif!(E001 1000) => ValueType::ErrorMask,
+		vif!(E001 1001) => ValueType::SecurityKey,
+		vif!(E001 1010) => ValueType::DigitalOutput,
+		vif!(E001 1011) => ValueType::DigitalInput,
+		vif!(E001 1100) => ValueType::BaudRate,
+		vif!(E001 1101) => ValueType::ResponseDelayTime,
+		vif!(E001 1110) => ValueType::Retry,
+		vif!(E001 1111) => ValueType::RemoteControl,
+		vif!(E010 0000) => ValueType::FirstStorageNumberForCyclicStorage,
+		vif!(E010 0001) => ValueType::LastStorageNumberForCyclicStorage,
+		vif!(E010 0010) => ValueType::SizeOfStorageBlock,
+		vif!(E010 0011) => ValueType::DescriptorForTariffAndSubunit,
+		vif!(E010 01nn) => ValueType::StorageInterval(DurationType::decode_nn(value)),
+		vif!(E010 1000) => ValueType::StorageInterval(DurationType::Months),
+		vif!(E010 1001) => ValueType::StorageInterval(DurationType::Years),
+		vif!(E010 1010) => ValueType::OperatorSpecific,
+		vif!(E010 1011) => ValueType::TimePointSecond,
+		vif!(E010 11nn) => ValueType::DurationSinceLastReadout(DurationType::decode_nn(value)),
+		vif!(E011 0000) => ValueType::StartDateTimeOfTariff,
+		// Unfortunate overlap so we can't use the macro :(
+		// vif!(E011 00nn) => ValueType::DurationOfTariff(DurationType::decode_nn(value)),
+		0b0011_0001..=0b0011_0011 => ValueType::DurationOfTariff(DurationType::decode_nn(value)),
 		vif!(E011 01nn) => ValueType::PeriodOfTarrif(DurationType::decode_nn(value)),
 		vif!(E011 1000) => ValueType::PeriodOfTarrif(DurationType::Months),
 		vif!(E011 1001) => ValueType::PeriodOfTarrif(DurationType::Years),
-		_ => todo!("table 12 {value} {value:x} {value:b}"),
+		vif!(E011 1010) => ValueType::Dimensionless,
+		vif!(E011 1011) => ValueType::WirelessContainer,
+		vif!(E011 11nn) => {
+			ValueType::PeriodOfNominalDataTransmissions(DurationType::decode_nn(value))
+		}
+		vif!(E100 nnnn) => ValueType::Volts(exp(MASK_NNNN, value, -9)),
+		vif!(E101 nnnn) => ValueType::Amperes(exp(MASK_NNNN, value, -12)),
+		vif!(E110 0000) => ValueType::ResetCounter,
+		vif!(E110 0001) => ValueType::CumulationCounter,
+		vif!(E110 0010) => ValueType::ControlSignal,
+		vif!(E110 0011) => ValueType::DayOfWeek,
+		vif!(E110 0100) => ValueType::WeekNumber,
+		vif!(E110 0101) => ValueType::TimePointOfDayChange,
+		vif!(E110 0110) => ValueType::StateOfParameterActivation,
+		vif!(E110 0111) => ValueType::SpecialSupplierInformation,
+		vif!(E110 10pp) => ValueType::DurationSinceLastCumulation(DurationType::decode_pp(value)),
+		vif!(E110 11pp) => ValueType::OperatingTimeBattery(DurationType::decode_pp(value)),
+		vif!(E111 0000) => ValueType::DateAndTimeOfBatteryChange,
+		vif!(E111 0001) => ValueType::RFLevel,
+		vif!(E111 0010) => ValueType::DSTTypeK,
+		vif!(E111 0011) => ValueType::ListeningWindowManagement,
+		vif!(E111 0100) => ValueType::RemainingBatteryLife(DurationType::Days),
+		vif!(E111 0101) => ValueType::NumberTimesMeterStopped,
+		vif!(E111 0110) => ValueType::ManufacturerSpecificContainer,
+		_ => return None,
 	})
 }
 
 fn parse_table_13(value: u8) -> Option<ValueType> {
-	todo!("table 13 {value} {value:x} {value:b}")
+	Some(match value {
+		vif!(E000 0000) => ValueType::CurrentlySelectedApplication,
+		vif!(E000 0010) => ValueType::RemainingBatteryLife(DurationType::Months),
+		vif!(E000 0011) => ValueType::RemainingBatteryLife(DurationType::Years),
+		_ => return None,
+	})
 }
 
 fn parse_table_14(value: u8) -> Option<ValueType> {
+	// "These codes were used until 2004, now they are reserved for future use."
 	Some(match value {
-		0b0000_0000..=0b0000_0001 => ValueType::Energy(EnergyUnit::MWh, exp(MASK_N, value, -1)),
-		_ => todo!("table 14 {value} {value:x} {value:b}"),
+		vif!(E000 000n) => ValueType::Energy(EnergyUnit::MWh, exp(MASK_N, value, -1)),
+		vif!(E000 001n) => ValueType::ReactiveEnergy(exp(MASK_N, value, 0)),
+		vif!(E000 010n) => ValueType::ApparentEnergy(exp(MASK_N, value, 0)),
+		vif!(E000 100n) => ValueType::Energy(EnergyUnit::GJ, exp(MASK_N, value, -1)),
+		vif!(E000 11nn) => ValueType::Energy(EnergyUnit::MCal, exp(MASK_NN, value, -1)),
+		vif!(E001 000n) => ValueType::Volume(VolumeUnit::M3, exp(MASK_N, value, 2)),
+		vif!(E001 01nn) => ValueType::ReactivePower(exp(MASK_NN, value, -3)),
+		vif!(E001 100n) => ValueType::Mass(MassUnit::T, exp(MASK_N, value, 2)),
+		vif!(E001 101n) => ValueType::RelativeHumidity(exp(MASK_N, value, -1)),
+		vif!(E010 0000) => ValueType::Volume(VolumeUnit::Feet3, 0),
+		vif!(E010 0001) => ValueType::Volume(VolumeUnit::Feet3, -1), // The table says "0,1 feet³" and I don't know what that means
+		0b0010_0010..=0b0010_0110 => ValueType::RetiredCode(value),
+		vif!(E010 100n) => ValueType::Power(PowerUnit::MW, exp(MASK_N, value, -1)),
+		vif!(E010 1010) => ValueType::PhaseUU,
+		vif!(E010 1011) => ValueType::PhaseUI,
+		vif!(E010 11nn) => ValueType::Frequency(exp(MASK_NN, value, -3)),
+		vif!(E011 000n) => ValueType::Power(PowerUnit::GJph, exp(MASK_N, value, -1)),
+		vif!(E011 01nn) => ValueType::ApparentPower(exp(MASK_NN, value, -1)),
+		0b0101_1000..=0b0110_0111 => ValueType::RetiredCode(value),
+		vif!(E110 1000) => ValueType::ResultingPowerFactorK,
+		vif!(E110 1001) => ValueType::ThermalOutputRatingFactorKq,
+		vif!(E110 1010) => ValueType::ThermalCouplingRatingFactorOverallKc,
+		vif!(E110 1011) => ValueType::ThermalCouplingRatingFactorRoomSideKcr,
+		vif!(E110 1100) => ValueType::ThermalCouplingRatingFactorHeaterSideKch,
+		vif!(E110 1101) => ValueType::LowTemperatureRatingFactorKt,
+		vif!(E110 1110) => ValueType::DisplayOutputScalingFactorKD,
+		vif!(E111 00nn) => ValueType::RetiredCode(value),
+		vif!(E111 01nn) => ValueType::ColdWarmTemperatureLimit(exp(MASK_NN, value, -3)),
+		vif!(E111 1nnn) => ValueType::CumulativeMaxOfActivePower(exp(MASK_NNN, value, -3)),
+		_ => return None,
 	})
 }
 
@@ -262,6 +368,7 @@ pub enum ValueType {
 	Any,
 	PlainText(String),
 	ManufacturerSpecific,
+	RetiredCode(u8), // "These codes were used until 2004, now they are reserved for future use."
 	// Table 10 - Primary VIF-codes
 	Energy(EnergyUnit, Exponent),
 	Volume(VolumeUnit, Exponent),
@@ -302,6 +409,7 @@ pub enum ValueType {
 	Customer,
 	AccessCodeUser,
 	AccessCodeOperator,
+	AccessCodeSystemOperator,
 	AccessCodeDeveloper,
 	Password,
 	ErrorFlags,

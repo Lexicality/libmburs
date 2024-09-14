@@ -3,6 +3,7 @@ use winnow::ascii;
 use winnow::combinator::repeat;
 use winnow::error::InputError;
 use winnow::prelude::*;
+use winnow::token::one_of;
 use winnow::Str;
 
 #[proc_macro]
@@ -11,10 +12,17 @@ pub fn vif(input: TokenStream) -> TokenStream {
 
 	let (_, upper_bits, _, lower_bits, ns) = (
 		'E'.void(),
-		ascii::digit1::<_, InputError<Str>>.map(|s| u8::from_str_radix(s, 2).unwrap()),
+		ascii::digit1::<_, InputError<Str>>
+			.map(|s| u8::from_str_radix(s, 2).expect("upper must be a valid binary expression")),
 		' '.void(),
-		ascii::digit0.map(|s| u8::from_str_radix(s, 2).unwrap()),
-		repeat::<_, _, String, _, _>(0..=4, 'n'),
+		ascii::digit0.map(|s: &str| {
+			if !s.is_empty() {
+				u8::from_str_radix(s, 2).expect("lower must be a valid binary expression")
+			} else {
+				0
+			}
+		}),
+		repeat::<_, _, String, _, _>(0..=4, one_of(('n', 'p'))),
 	)
 		.parse(raw_input.as_str())
 		.unwrap();
