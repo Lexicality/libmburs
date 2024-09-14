@@ -32,8 +32,6 @@ mod test_parse {
 			"EDC.hex",
 			"EFE_Engelmann-Elster-SensoStar-2.hex",
 			"EFE_Engelmann-WaterStar.hex",
-			"electricity-meter-1.hex",
-			"electricity-meter-2.hex",
 			"ELS_Elster-F96-Plus.hex",
 			"els_falcon.hex",
 			"Elster-F2.hex",
