@@ -187,6 +187,133 @@ mod test_parse_bcd {
 	}
 }
 
+fn parse_hex_nibble(input: &mut BitsInput<'_>) -> MBResult<char> {
+	binary::bits::take(4_usize)
+		.verify_map(|i: u32| char::from_digit(i, 16))
+		.parse_next(input)
+}
+
+pub fn parse_invalid_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, String, MBusError> {
+	let parser = move |input: &mut BitsInput<'a>| {
+		if bytes == 0 {
+			return Ok("".to_owned());
+		}
+		let mut initial_bytes: Vec<(char, char)> =
+			repeat(bytes - 1, (parse_hex_nibble, parse_hex_nibble))
+				.context(StrContext::Label("initial bytes"))
+				.parse_next(input)?;
+
+		// last byte is speical because of the `-` behaviour
+		initial_bytes.push(
+			(
+				parse_hex_nibble.map(|c| if c == 'f' { '-' } else { c }),
+				parse_hex_nibble,
+			)
+				.context(StrContext::Label("final byte"))
+				.parse_next(input)?,
+		);
+
+		let result: String = initial_bytes
+			.into_iter()
+			.rev()
+			.flat_map(|i| [i.0, i.1])
+			.collect();
+
+		Ok(result.to_uppercase())
+	};
+
+	binary::bits::bits(parser).context(StrContext::Label("signed BCD number"))
+}
+
+#[cfg(test)]
+mod test_parse_invalid_bcd {
+	use winnow::error::ErrorKind;
+	use winnow::{Bytes, Parser};
+
+	use super::parse_invalid_bcd;
+
+	#[test]
+	fn test_basic_unsigned() {
+		let input = Bytes::new(&[0x12]);
+
+		let result = parse_invalid_bcd(1).parse(input).unwrap();
+
+		assert_eq!(result, "12");
+	}
+
+	#[test]
+	fn test_byte_order_unsigned() {
+		let input = Bytes::new(&[0x34, 0x12]);
+
+		let result = parse_invalid_bcd(2).parse(input).unwrap();
+
+		assert_eq!(result, "1234");
+	}
+
+	#[test]
+	fn test_basic_signed() {
+		let input = Bytes::new(&[0xF1]);
+
+		let result = parse_invalid_bcd(1).parse(input).unwrap();
+
+		assert_eq!(result, "-1");
+	}
+
+	#[test]
+	fn test_byte_order_signed() {
+		let input = Bytes::new(&[0x23, 0xF1]);
+
+		let result = parse_invalid_bcd(2).parse(input).unwrap();
+
+		assert_eq!(result, "-123");
+	}
+
+	#[test]
+	fn test_negative_zero() {
+		let input = Bytes::new(&[0xF0]);
+
+		let result = parse_invalid_bcd(1).parse(input).unwrap();
+
+		assert_eq!(result, "-0");
+	}
+
+	#[test]
+	fn test_parse_zero() {
+		let input = Bytes::new(&[]);
+
+		let result = parse_invalid_bcd(0).parse(input).unwrap();
+
+		assert_eq!(result, "");
+	}
+
+	#[test]
+	fn test_parse_not_enough_data() {
+		let input = Bytes::new(&[0x12]);
+
+		let result = parse_invalid_bcd(2).parse(input).unwrap_err();
+
+		assert_eq!(result.inner().kind(), ErrorKind::Eof);
+	}
+
+	#[test]
+	fn test_hex() {
+		let input = Bytes::new(&[0xEF, 0xCD, 0xAB]);
+
+		let result = parse_invalid_bcd(3).parse(input).unwrap();
+
+		assert_eq!(result, "ABCDEF");
+	}
+
+	#[test]
+	fn test_negative_hex() {
+		let input = Bytes::new(&[0xFF]);
+
+		let result = parse_invalid_bcd(1).parse(input).unwrap();
+
+		assert_eq!(result, "-F");
+	}
+}
+
 pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 	move |input: &mut &'a Bytes| {
 		match bytes {

@@ -2,7 +2,7 @@
 // Licensed under the EUPL-1.2
 
 use winnow::binary;
-use winnow::combinator::repeat;
+use winnow::combinator::{alt, repeat};
 use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
@@ -11,7 +11,7 @@ use winnow::Bytes;
 use crate::parse::error::{MBResult, MBusError};
 use crate::parse::types::date::{TypeFDateTime, TypeGDate, TypeIDateTime, TypeJTime, TypeKDST};
 use crate::parse::types::number::{
-	parse_bcd, parse_binary_signed, parse_binary_unsigned, parse_real,
+	parse_bcd, parse_binary_signed, parse_binary_unsigned, parse_invalid_bcd, parse_real,
 };
 use crate::parse::types::string::parse_latin1;
 use crate::parse::types::DataType;
@@ -55,7 +55,11 @@ impl Record {
 			// 	return Err(ErrMode::assert(input, "Type M dates not implemented yet"))
 			// }
 			_ => match dib.raw_type {
-				RawDataType::BCD(num) => parse_bcd(num).map(DataType::Signed).parse_next(input)?,
+				RawDataType::BCD(num) => alt((
+					parse_bcd(num).map(DataType::Signed),
+					parse_invalid_bcd(num).map(DataType::ErrorValue),
+				))
+				.parse_next(input)?,
 				RawDataType::Binary(num) => parse_binary(unsigned, num).parse_next(input)?,
 				RawDataType::Real => parse_real.map(DataType::Real).parse_next(input)?,
 				RawDataType::None => DataType::None,

@@ -21,6 +21,7 @@ pub enum DataType {
 	Time(date::TypeJTime),          // Type J
 	DST(date::TypeKDST),            // Type K
 	String(String),
+	ErrorValue(String),
 	Invalid(Vec<u8>),
 	VariableLengthNumber(Vec<u8>),
 	ManufacturerSpecific(Vec<u8>),
