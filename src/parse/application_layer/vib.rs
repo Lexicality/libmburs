@@ -13,7 +13,7 @@ use winnow::stream::Stream;
 
 const VIF_EXTENSION_1: u8 = 0b0111_1011;
 const VIF_EXTENSION_2: u8 = 0b0111_1101;
-const VIF_ASCII: u8 = 0b011_1100;
+const VIF_ASCII: u8 = 0b0111_1100;
 const VIF_MANUFACTURER: u8 = 0b0111_1111;
 const VIF_ANY: u8 = 0b0111_1110;
 
@@ -103,9 +103,19 @@ impl ValueInfoBlock {
 				}
 			}
 			VIF_ASCII => {
-				// We need to deal with any potential extensions before we can
-				// read the vif string, so chuck a placeholder in there
-				Some(ValueType::PlainText(String::new()))
+				// TODO: EN 13757-3:2018 Annex C.2 strongly suggests
+				// (but doesn't actually explicitly say) that the ascii text
+				// should follow the VIFEs, but the test data from libmbus has
+				// it between the VIF and the VIFEs.
+				//
+				// Since this is the only examples of plain text VIF data I
+				// have, I'm going to have to trust it, but I'm very confused
+				Some(
+					bits::bytes(parse_length_prefix_ascii)
+						.map(ValueType::PlainText)
+						.context(StrContext::Label("plain text VIF data"))
+						.parse_next(input)?,
+				)
 			}
 			VIF_MANUFACTURER => Some(ValueType::ManufacturerSpecific),
 			VIF_ANY => Some(ValueType::Any),
@@ -127,16 +137,6 @@ impl ValueInfoBlock {
 			Some(dump_remaining_vifes(input)?)
 		} else {
 			None
-		};
-
-		// Now we've parsed all the VIFEs we can get the ascii VIF if necessary
-		let value_type = match value_type {
-			ValueType::PlainText(_) => ValueType::PlainText(
-				bits::bytes(parse_length_prefix_ascii)
-					.context(StrContext::Label("plain text VIF data"))
-					.parse_next(input)?,
-			),
-			value_type => value_type,
 		};
 
 		Ok(Self {
