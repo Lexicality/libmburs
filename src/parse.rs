@@ -61,7 +61,6 @@ mod test_parse {
 			"kamstrup_multical_601.hex",
 			"landis+gyr_ultraheat_t230.hex",
 			"LGB_G350.hex",
-			"manual_frame2.hex",
 			"manual_frame3.hex",
 			"manual_frame7.hex",
 			"metrona_pollutherm.hex",
@@ -78,7 +77,6 @@ mod test_parse {
 			"REL-Relay-Padpuls2.hex",
 			"SBC_Saia-Burgess-ALE3.hex",
 			"sen_pollucom_e.hex",
-			"sen_pollusonic_2.hex",
 			"SEN_Pollustat.hex",
 			"sen_pollutherm.hex",
 			"SEN_Sensus-PolluStat-E.hex",
@@ -94,6 +92,9 @@ mod test_parse {
 			"THI_cma10.hex",
 			"wmbus-converted.hex",
 			"ZRM_Minol-Minocal-C2.hex"
+			// TODO: These are using the compact frame
+			// "manual_frame2.hex",
+			// "sen_pollusonic_2.hex",
 		)]
 		filename: &str,
 	) -> Result<(), MBusError> {

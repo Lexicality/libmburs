@@ -61,7 +61,8 @@ impl MBusMessage {
 			0x72 => (parse_long_header, Frame::parse)
 				.map(|(header, frame)| MBusMessage::ResponseFromDevice(header, frame))
 				.parse_next(input)?,
-			_ => todo!("CI code {ci}"),
+			0x73 => todo!("compact frame"),
+			_ => todo!("CI code {ci:x}"),
 		})
 	}
 }
