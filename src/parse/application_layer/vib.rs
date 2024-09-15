@@ -481,12 +481,15 @@ impl ValueType {
 				| Self::MetrologyFirmwareVersionNumber
 				| Self::OtherSoftwareVersionNumber
 				| Self::CustomerLocation
-				| Self::Customer | Self::AccessCodeUser
+				| Self::Customer
+				| Self::AccessCodeUser
 				| Self::AccessCodeOperator
 				| Self::AccessCodeDeveloper
-				| Self::Password | Self::ErrorMask
+				| Self::Password
+				| Self::ErrorMask
 				| Self::SecurityKey
-				| Self::BaudRate | Self::ResponseDelayTime
+				| Self::BaudRate
+				| Self::ResponseDelayTime
 				| Self::FirstStorageNumberForCyclicStorage
 				| Self::LastStorageNumberForCyclicStorage
 				| Self::SizeOfStorageBlock
