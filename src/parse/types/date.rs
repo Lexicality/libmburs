@@ -2,6 +2,7 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 
+use winnow::binary;
 use winnow::binary::bits;
 use winnow::combinator::peek;
 use winnow::error::StrContext;
@@ -21,20 +22,20 @@ fn parse_dmy(input: &mut BitsInput<'_>) -> MBResult<(u8, u8, u8)> {
 	.context(StrContext::Label("invalid check"))
 	.parse_next(input)?;
 	(
-		// Year lower bits
+		// Year upper bits
 		bits::take(3_usize).context(StrContext::Label("year (upper)")),
 		// Day
 		bits::take(5_usize)
 			.context(StrContext::Label("day"))
 			.verify(|v| matches!(v, 0..=31)),
+		// Year lower bits
+		bits::take(4_usize).context(StrContext::Label("year (lower)")),
 		// month
 		bits::take(4_usize)
 			.context(StrContext::Label("month"))
 			.verify(|v| matches!(v, 1..=12 | 15)),
-		// Year upper bits
-		bits::take(4_usize).context(StrContext::Label("year (lower)")),
 	)
-		.map(|(yu, day, month, yl): (u8, u8, u8, u8)| (day, month, yl + (yu << 3)))
+		.map(|(yu, day, yl, month): (u8, u8, u8, u8)| (day, month, yl + (yu << 3)))
 		.verify(|(_, _, y)| matches!(y, 0..=99 | 127))
 		.parse_next(input)
 }
@@ -61,7 +62,16 @@ pub struct TypeFDateTime {
 
 impl TypeFDateTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
+		let preview = peek(binary::le_u32).parse_next(input)?;
+		let preview2 = peek((binary::u8, binary::u8, binary::u8, binary::u8)).parse_next(input)?;
+		println!("{preview:032b}");
+		println!(
+			"{:08b} {:08b} {:08b} {:08b}",
+			preview2.3, preview2.2, preview2.1, preview2.0,
+		);
+
 		bits::bits::<_, _, MBusError, _, _>((
+			parse_dmy,
 			bits::bool
 				.context(StrContext::Label("invalid bit"))
 				.verify(|v| !v)
@@ -72,16 +82,37 @@ impl TypeFDateTime {
 				.void(),
 			bits::take(6_usize)
 				.context(StrContext::Label("minute"))
+				.verify(|v| {
+					println!("minute: {v:06b} {v}");
+					true
+				})
 				.verify(|v| matches!(v, 0..=59 | 63)),
 			bits::bool.context(StrContext::Label("in_dst")),
-			bits::take(2_usize).context(StrContext::Label("hundred year")),
+			bits::take(2_usize)
+				.verify(|v| {
+					println!("hundred year: {v:02b} {v}");
+					true
+				})
+				.context(StrContext::Label("hundred year")),
 			bits::take(5_usize)
 				.context(StrContext::Label("hour"))
+				.verify(|v| {
+					println!("hours: {v:05b} {v}");
+					true
+				})
 				.verify(|v| matches!(v, 0..=23 | 31)),
-			parse_dmy,
 		))
 		.map(
-			|(_, _, minute, in_dst, hundred_year, hour, (day, month, year))| TypeFDateTime {
+			|(
+				(day, month, year),
+				_,
+				_,
+				minute,
+				in_dst,
+				hundred_year,
+				hour,
+				//
+			)| TypeFDateTime {
 				minute,
 				in_dst,
 				hour,
@@ -91,6 +122,15 @@ impl TypeFDateTime {
 				hundred_year,
 			},
 		)
+		.map(|dt: TypeFDateTime| {
+			let year: i32 = 1900_i32 + (100_i32 * i32::from(dt.hundred_year)) + i32::from(dt.year);
+			println!(
+				"{:04}-{:02}-{:02}T{:02}:{:02}:00",
+				year, dt.month, dt.day, dt.hour, dt.minute
+			);
+			println!("2021-01-06T11:54:00");
+			todo!();
+		})
 		.parse_next(input)
 	}
 }
