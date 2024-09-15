@@ -2,6 +2,7 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 use winnow::binary;
+use winnow::combinator::peek;
 use winnow::error::{InputError, StrContext};
 use winnow::prelude::*;
 use winnow::Bytes;
@@ -10,11 +11,6 @@ use crate::parse::error::MBResult;
 use crate::parse::types::number::parse_bcd;
 
 use super::manufacturer::{device_name, unpack_manufacturer_code};
-
-/// This is a placeholder until I actually have some way to test security modes
-/// For more information see BS EN 13757-7:2018 7.6.2 and 7.6.3
-#[derive(Debug)]
-pub struct ExtraHeader;
 
 #[derive(Debug)]
 pub enum ApplicationError {
@@ -90,11 +86,51 @@ impl MeterStatus {
 	}
 }
 
+/// This is a placeholder until I actually have some way to test security modes
+/// For more information see BS EN 13757-7:2018 7.6.2 and 7.6.3
+#[derive(Debug)]
+pub struct ExtraHeader;
+
+#[derive(Debug)]
+pub enum SecurityMode {
+	None,
+	/// Indicates that the packet is corrupted and should be discarded, unless
+	/// you're the libmbus test data that requires me to support this
+	Reserved(u16),
+}
+impl SecurityMode {
+	fn parse(input: &mut &Bytes) -> MBResult<SecurityMode> {
+		let raw_value = peek(binary::le_u16)
+			.context(StrContext::Label("Raw value peek"))
+			.parse_next(input)?;
+		(binary::bits::bits::<_, _, InputError<_>, _, _>((
+			binary::bits::take(8_usize).context(StrContext::Label("Security mode info low")),
+			binary::bits::take(5_usize).context(StrContext::Label("Security mode")),
+			binary::bits::take(3_usize).context(StrContext::Label("Security mode info high")),
+		)))
+		.verify_map(|(info_low, security_mode, info_high): (u8, u8, u8)| {
+			match security_mode {
+				0 => {
+					if info_high == 0 && info_low == 0 {
+						Some(SecurityMode::None)
+					} else {
+						None
+					}
+				}
+				// libmbus strikes again
+				6 | 11 | 12 | 14 | 16..=31 => Some(SecurityMode::Reserved(raw_value)),
+				_ => todo!("Packet encryption is not yet supported (mode {security_mode})"),
+			}
+		})
+		.parse_next(input)
+	}
+}
+
 #[derive(Debug)]
 pub struct ShortHeader {
 	pub access_number: u8,
 	pub status: MeterStatus,
-	pub configuration_field: u16,
+	pub configuration_field: SecurityMode,
 	pub extra_header: Option<ExtraHeader>,
 }
 
@@ -107,14 +143,7 @@ impl ShortHeader {
 		(
 			binary::u8.context(StrContext::Label("access number")),
 			MeterStatus::parse.context(StrContext::Label("status")),
-			binary::le_u16
-				.context(StrContext::Label("tpl configuration field"))
-				.verify(|v| {
-					// TODO: This field can be many things that are not 0 but I
-					// don't have any way of testing that behaviour so I'm just
-					// going to ignore its existence
-					*v == 0
-				}),
+			SecurityMode::parse.context(StrContext::Label("tpl configuration field")),
 		)
 			.map(|(access_number, status, configuration_field)| ShortHeader {
 				access_number,
@@ -260,7 +289,7 @@ pub struct LongHeader {
 	pub device_type: DeviceType,
 	pub access_number: u8,
 	pub status: MeterStatus,
-	pub configuration_field: u16,
+	pub configuration_field: SecurityMode,
 	pub extra_header: Option<ExtraHeader>,
 }
 
