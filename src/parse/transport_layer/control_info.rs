@@ -10,6 +10,8 @@ use winnow::Bytes;
 use crate::parse::application_layer::application::{ApplicationErrorMessage, ApplicationMessage};
 use crate::parse::application_layer::frame::Frame;
 use crate::parse::error::MBResult;
+use crate::parse::error::MBusEncodeError;
+use crate::parse::types::Encode;
 
 use super::header::LongHeader;
 use super::header::ShortHeader;
@@ -179,5 +181,13 @@ impl MBusMessage {
 			0x73 | 0x79 | 0x7B => todo!("compact frame"),
 			_ => unreachable!(),
 		})
+	}
+}
+
+impl Encode for MBusMessage {
+	fn encode(&self) -> Result<Vec<u8>, MBusEncodeError> {
+		Err(MBusEncodeError(
+			crate::parse::error::MBusEncodErrorCause::NotImplementedYet,
+		))
 	}
 }
