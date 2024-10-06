@@ -9,8 +9,9 @@ use winnow::prelude::*;
 use winnow::stream::Stream;
 use winnow::Bytes;
 
-use super::error::{MBResult, MBusError};
+use super::error::{MBResult, MBusEncodErrorCause, MBusEncodeError, MBusError};
 use super::transport_layer::MBusMessage;
+use super::types::Encode;
 
 const LONG_FRAME_HEADER: u8 = 0x68;
 const SHORT_FRAME_HEADER: u8 = 0x10;
@@ -110,6 +111,69 @@ impl Control {
 			})
 		})
 		.parse_next(input)
+	}
+}
+
+impl Encode for Control {
+	#[allow(clippy::identity_op)]
+	fn encode(&self) -> Result<Vec<u8>, MBusEncodeError> {
+		let res = match self {
+			Self::Primary {
+				frame_count_bit,
+				message,
+			} => {
+				const FRAME_COUNT_BIT: u8 = 0b0010_0000;
+				const FRAME_COUNT_VALID: u8 = 0b0001_0000;
+				const FRAME_COUNT_INVALID: u8 = 0b0000_0000;
+
+				let mut res = 0b0100_0000;
+
+				if *frame_count_bit {
+					res |= FRAME_COUNT_BIT;
+				}
+				res |= match message {
+					PrimaryControlMessage::ResetRemoteLink => FRAME_COUNT_INVALID | 0,
+					PrimaryControlMessage::ResetUserProcess => FRAME_COUNT_INVALID | 1,
+					PrimaryControlMessage::SendUserDataConfirmed => FRAME_COUNT_VALID | 3,
+					PrimaryControlMessage::SendUserDataUnconfirmed => FRAME_COUNT_INVALID | 3,
+					PrimaryControlMessage::RequestAccessDemand => FRAME_COUNT_INVALID | 8,
+					PrimaryControlMessage::RequestLinkStatus => FRAME_COUNT_INVALID | 9,
+					PrimaryControlMessage::RequestUserData1 => FRAME_COUNT_VALID | 10,
+					PrimaryControlMessage::RequestUserData2 => FRAME_COUNT_VALID | 11,
+				};
+
+				res
+			}
+			Self::Secondary {
+				access_demand: acess_demand,
+				data_flow_control,
+				message,
+			} => {
+				const ACCESS_DEMAND: u8 = 0b0010_0000;
+				const FLOW_CONTROL_PAUSE: u8 = 0b0001_0000;
+
+				let mut res = 0;
+				if *acess_demand {
+					res |= ACCESS_DEMAND;
+				}
+				if matches!(data_flow_control, DataFlowControl::Pause) {
+					res |= FLOW_CONTROL_PAUSE;
+				}
+
+				res |= match message {
+					SecondaryControlMessage::ACK => 0,
+					SecondaryControlMessage::NACK => 1,
+					SecondaryControlMessage::UserData => 8,
+					SecondaryControlMessage::UserDataUnavailable => 9,
+					SecondaryControlMessage::Status => 11,
+					SecondaryControlMessage::LinkNotFunctioning => 14,
+					SecondaryControlMessage::LinkNotImplemented => 15,
+				};
+
+				res
+			}
+		};
+		Ok(vec![res])
 	}
 }
 
@@ -240,5 +304,63 @@ impl Packet {
 			preceded(ACK_FRAME.void(), cut_err(parse_ack)),
 		))
 		.parse_next(input)
+	}
+}
+
+impl Encode for Packet {
+	fn encode(&self) -> Result<Vec<u8>, MBusEncodeError> {
+		Ok(match self {
+			Self::Ack => vec![ACK_FRAME],
+			Self::Short { control, address } => {
+				let mut data = control.encode()?;
+				data.push(*address);
+
+				let checksum: u8 = data
+					.iter()
+					.copied()
+					.reduce(|a, b| a.wrapping_add(b))
+					.unwrap_or(0);
+
+				let mut frame = vec![SHORT_FRAME_HEADER];
+				frame.reserve_exact(4);
+				frame.append(&mut data);
+				frame.push(checksum);
+				frame.push(FRAME_TAIL);
+				frame
+			}
+			Self::Long {
+				control,
+				address,
+				message,
+			} => {
+				let mut data = control.encode()?;
+				data.push(*address);
+				data.append(&mut message.encode()?);
+
+				let data_length = data.len();
+				if data_length > 253 {
+					return Err(MBusEncodeError(MBusEncodErrorCause::UserDataTooLong));
+				}
+				let length_byte: u8 = data_length.try_into().unwrap();
+
+				let checksum: u8 = data
+					.iter()
+					.copied()
+					.reduce(|a, b| a.wrapping_add(b))
+					.unwrap_or(0);
+
+				let mut frame = vec![
+					LONG_FRAME_HEADER,
+					length_byte,
+					length_byte,
+					LONG_FRAME_HEADER,
+				];
+				frame.reserve_exact(2 + data_length);
+				frame.append(&mut data);
+				frame.push(checksum);
+				frame.push(FRAME_TAIL);
+				frame
+			}
+		})
 	}
 }

@@ -1,3 +1,6 @@
+use std::error::Error;
+use std::fmt::Display;
+
 // Copyright 2023 Lexi Robinson
 // Licensed under the EUPL-1.2
 use winnow::error::{
@@ -90,3 +93,22 @@ impl ErrorConvert<MBusError> for ContextError<StrContext> {
 		MBusError(self, ErrorKind::Fail)
 	}
 }
+
+#[derive(Debug)]
+pub enum MBusEncodErrorCause {
+	NotImplementedYet,
+	ReservedValue,
+	UserDataTooLong,
+}
+
+#[derive(Debug)]
+pub struct MBusEncodeError(pub MBusEncodErrorCause);
+
+impl Display for MBusEncodeError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		// TODO
+		write!(f, "MBus Encode Error: {:?}", self.0)
+	}
+}
+
+impl Error for MBusEncodeError {}

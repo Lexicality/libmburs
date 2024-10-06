@@ -3,6 +3,8 @@
 
 use winnow::Bytes;
 
+use super::error::MBusEncodeError;
+
 pub mod date;
 pub mod number;
 pub mod string;
@@ -29,3 +31,7 @@ pub enum DataType {
 }
 
 pub type BitsInput<'a> = (&'a Bytes, usize);
+
+pub trait Encode {
+	fn encode(&self) -> Result<Vec<u8>, MBusEncodeError>;
+}
