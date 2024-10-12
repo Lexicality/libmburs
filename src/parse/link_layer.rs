@@ -53,7 +53,7 @@ pub enum Control {
 		message: PrimaryControlMessage,
 	},
 	Secondary {
-		acess_demand: bool, // The secondary wants you to send it a REQ UD1 ASAP
+		access_demand: bool, // The secondary wants you to send it a REQ UD1 ASAP
 		data_flow_control: DataFlowControl,
 		message: SecondaryControlMessage,
 	},
@@ -90,7 +90,7 @@ impl Control {
 				}
 			} else {
 				Self::Secondary {
-					acess_demand: fcb_acd,
+					access_demand: fcb_acd,
 					data_flow_control: if fcv_dfc {
 						DataFlowControl::Pause
 					} else {
