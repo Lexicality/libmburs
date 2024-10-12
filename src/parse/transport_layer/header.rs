@@ -12,7 +12,7 @@ use crate::parse::types::number::parse_bcd;
 
 use super::manufacturer::{device_name, unpack_manufacturer_code};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ApplicationError {
 	None,
 	Busy,
@@ -27,7 +27,7 @@ pub enum ApplicationError {
 
 // TODO: This is packed into a single byte so we should be able to use a
 // bitfield or something as opposed to 7 bytes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MeterStatus {
 	pub manufacturer_2: bool,
 	pub manufacturer_1: bool,
@@ -88,10 +88,10 @@ impl MeterStatus {
 
 /// This is a placeholder until I actually have some way to test security modes
 /// For more information see BS EN 13757-7:2018 7.6.2 and 7.6.3
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExtraHeader;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SecurityMode {
 	None,
 	/// Indicates that the packet is corrupted and should be discarded, unless
@@ -126,7 +126,7 @@ impl SecurityMode {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShortHeader {
 	pub access_number: u8,
 	pub status: MeterStatus,
@@ -280,7 +280,7 @@ impl DeviceType {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LongHeader {
 	pub identifier: u32,
 	pub manufacturer: String,
@@ -342,7 +342,7 @@ impl LongHeader {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TPLHeader {
 	None,
 	Short(ShortHeader),
