@@ -7,8 +7,8 @@ use winnow::prelude::*;
 use winnow::stream::Stream;
 use winnow::Bytes;
 
+use crate::parse::application_layer::application::{ApplicationErrorMessage, ApplicationMessage};
 use crate::parse::application_layer::frame::Frame;
-use crate::parse::application_layer::record::Record;
 use crate::parse::error::MBResult;
 
 use super::header::LongHeader;
@@ -28,85 +28,12 @@ pub enum BaudRate {
 }
 
 #[derive(Debug)]
-pub enum ApplicationError {
-	Unspecified,
-	CIFieldError,
-	BufferOverflow,
-	RecordOverflow,
-	RecordError,
-	DIFEOverflow,
-	VIFEOverflow,
-	ApplicationBusy,
-	CreditOverflow,
-	NoFunction,
-	DataError,
-	RoutingOrRelayingError,
-	AccessViolation,
-	ParameterError,
-	SizeError,
-	SecurityError,
-	SecurityMechanismNotSupported,
-	InadequateSecurityMethod,
-	DynamicError(Record),
-	ManufacturerSpecific(u8, Vec<u8>),
-}
-impl ApplicationError {
-	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
-		if input.is_empty() {
-			return Ok(Self::Unspecified);
-		}
-
-		let error_code_checkpoint = input.checkpoint();
-		let error_code = binary::u8
-			.context(StrContext::Label("Error Code"))
-			.parse_next(input)?;
-
-		Ok(match error_code {
-			0x00 => Self::Unspecified,
-			0x01 => Self::CIFieldError,
-			0x02 => Self::BufferOverflow,
-			0x03 => Self::RecordOverflow,
-			0x04 => Self::RecordError,
-			0x05 => Self::DIFEOverflow,
-			0x06 => Self::VIFEOverflow,
-			0x08 => Self::ApplicationBusy,
-			0x09 => Self::CreditOverflow,
-			0x11 => Self::NoFunction,
-			0x12 => Self::DataError,
-			0x13 => Self::RoutingOrRelayingError,
-			0x14 => Self::AccessViolation,
-			0x15 => Self::ParameterError,
-			0x16 => Self::SizeError,
-			0x20 => Self::SecurityError,
-			0x21 => Self::SecurityMechanismNotSupported,
-			0x22 => Self::InadequateSecurityMethod,
-			0xF0 => Self::DynamicError(Record::parse.parse_next(input)?),
-			0xF1..=0xFF => Self::ManufacturerSpecific(
-				error_code,
-				repeat::<_, _, Vec<_>, _, _>(0.., binary::u8)
-					.context(StrContext::Label("Manufacturer Specific Data"))
-					.parse_next(input)?,
-			),
-			_ => {
-				return Err(
-					ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
-						input,
-						&error_code_checkpoint,
-						StrContext::Label("reserved error code"),
-					),
-				);
-			}
-		})
-	}
-}
-
-#[derive(Debug)]
 pub enum MBusMessage {
 	// Application stuff
-	ApplicationReset(TPLHeader),           // EN 13757–3:2018, Clause 7
-	ApplicationSelect(TPLHeader, Vec<u8>), // EN 13757–3:2018, Clause 7
+	ApplicationReset(TPLHeader), // EN 13757–3:2018, Clause 7
+	ApplicationSelect(TPLHeader, ApplicationMessage), // EN 13757–3:2018, Clause 7
 	SelectedApplicationRequest(TPLHeader), // EN 13757–3:2018, Clause 7
-	SelectedApplicationResponse(TPLHeader, Vec<u8>), // EN 13757–3:2018, Clause 7
+	SelectedApplicationResponse(TPLHeader, ApplicationMessage), // EN 13757–3:2018, Clause 7
 	// Management Commands
 	SelectionOfDevice(Vec<u8>),                 // EN 13757-7:2018, Clause 8.4
 	SetBaudRate(BaudRate),                      // EN 13757-7:2018, Clause 8
@@ -115,7 +42,7 @@ pub enum MBusMessage {
 	TimeSyncToDevice(TPLHeader, Vec<u8>),       // EN 13757–3:2018, Clause 8
 	// Data operations
 	AlarmFromDevice(TPLHeader, Vec<u8>), // EN 13757–3:2018, Clause 9
-	ApplicationErrorFromDevice(TPLHeader, ApplicationError), // EN 13757–3:2018, Clause 10
+	ApplicationErrorFromDevice(TPLHeader, ApplicationErrorMessage), // EN 13757–3:2018, Clause 10
 	CommandToDevice(TPLHeader, Vec<u8>), // EN 13757–3:2018, Clause 6
 	ResponseFromDevice(TPLHeader, Frame), // EN 13757–3:2018, Clause 6, Annex G
 	// Unsupported
@@ -207,20 +134,23 @@ impl MBusMessage {
 			0xC0..=0xC2 => Self::ImageTransfer(ci, header, parse_remaining.parse_next(input)?),
 			0xC3..=0xC5 => Self::SecurityTransfer(ci, header, parse_remaining.parse_next(input)?),
 			// Application behaviour
-			0x50 | 0x53 => parse_remaining
-				.map(|data| {
+			0x50 | 0x53 => ApplicationMessage::parse
+				.map(|maybe_message| {
 					let header = header.clone();
-					if data.is_empty() {
-						Self::ApplicationReset(header)
+					if let Some(message) = maybe_message {
+						Self::ApplicationSelect(header, message)
 					} else {
-						Self::ApplicationSelect(header, data)
+						Self::ApplicationReset(header)
 					}
 				})
 				.parse_next(input)?,
 			0x54 | 0x55 => Self::SelectedApplicationRequest(header),
-			0x66..=0x68 => {
-				Self::SelectedApplicationResponse(header, parse_remaining.parse_next(input)?)
-			}
+			0x66..=0x68 => Self::SelectedApplicationResponse(
+				header,
+				ApplicationMessage::parse
+					.verify_map(|x| x)
+					.parse_next(input)?,
+			),
 			0x52 => Self::SelectionOfDevice(parse_remaining.parse_next(input)?),
 			// Management Commands
 			0x5C => Self::SynchroniseAction,
@@ -240,9 +170,10 @@ impl MBusMessage {
 			// Actual mbus
 			0x51 | 0x5A | 0x5B => Self::CommandToDevice(header, parse_remaining.parse_next(input)?),
 			0x69..=0x6B => todo!("format frame"),
-			0x6E..=0x70 => {
-				Self::ApplicationErrorFromDevice(header, ApplicationError::parse.parse_next(input)?)
-			}
+			0x6E..=0x70 => Self::ApplicationErrorFromDevice(
+				header,
+				ApplicationErrorMessage::parse.parse_next(input)?,
+			),
 			0x71 | 0x74 | 0x75 => Self::AlarmFromDevice(header, parse_remaining.parse_next(input)?),
 			0x72 | 0x78 | 0x7A => Self::ResponseFromDevice(header, Frame::parse.parse_next(input)?),
 			0x73 | 0x79 | 0x7B => todo!("compact frame"),
