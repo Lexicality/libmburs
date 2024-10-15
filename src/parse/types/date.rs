@@ -74,7 +74,16 @@ impl TypeFDateTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
 		let data = peek(repeat::<_, _, Vec<u8>, _, _>(4, binary::u8)).parse_next(input)?;
 		eprintln!("TYPE F DATE TIME: {data:#04X?}");
-		bits::bits((
+		let preview = peek(binary::le_u32).parse_next(input)?;
+		let preview2 = peek((binary::u8, binary::u8, binary::u8, binary::u8)).parse_next(input)?;
+		println!("{preview:032b}");
+		println!(
+			"{:08b} {:08b} {:08b} {:08b}",
+			preview2.3, preview2.2, preview2.1, preview2.0,
+		);
+
+		bits::bits::<_, _, MBusError, _, _>((
+			parse_dmy,
 			bits::bool
 				.verify(|v| !v)
 				.context(StrContext::Label("invalid bit"))
@@ -84,17 +93,38 @@ impl TypeFDateTime {
 				.context(StrContext::Label("reserved"))
 				.void(),
 			bits::take(6_usize)
+				.verify(|v| {
+					println!("minute: {v:06b} {v}");
+					true
+				})
 				.verify(|v| matches!(v, 0..=59 | 63))
 				.context(StrContext::Label("minute")),
 			bits::bool.context(StrContext::Label("in_dst")),
-			bits::take(2_usize).context(StrContext::Label("hundred year")),
+			bits::take(2_usize)
+				.verify(|v| {
+					println!("hundred year: {v:02b} {v}");
+					true
+				})
+				.context(StrContext::Label("hundred year")),
 			bits::take(5_usize)
+				.verify(|v| {
+					println!("hours: {v:05b} {v}");
+					true
+				})
 				.verify(|v| matches!(v, 0..=23 | 31))
 				.context(StrContext::Label("hour")),
-			parse_dmy,
 		))
 		.map(
-			|(_, _, minute, in_dst, hundred_year, hour, (day, month, year))| TypeFDateTime {
+			|(
+				(day, month, year),
+				_,
+				_,
+				minute,
+				in_dst,
+				hundred_year,
+				hour,
+				//
+			)| TypeFDateTime {
 				minute,
 				in_dst,
 				hour,
@@ -104,6 +134,15 @@ impl TypeFDateTime {
 				hundred_year,
 			},
 		)
+		.map(|dt: TypeFDateTime| {
+			let year: i32 = 1900_i32 + (100_i32 * i32::from(dt.hundred_year)) + i32::from(dt.year);
+			println!(
+				"{:04}-{:02}-{:02}T{:02}:{:02}:00",
+				year, dt.month, dt.day, dt.hour, dt.minute
+			);
+			println!("2021-01-06T11:54:00");
+			todo!();
+		})
 		.parse_next(input)
 	}
 }
