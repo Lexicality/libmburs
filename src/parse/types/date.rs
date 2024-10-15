@@ -28,7 +28,18 @@ fn parse_dmy(input: &mut BitsInput<'_>) -> MBResult<(u8, u8, u8)> {
 		bits::take(4_usize).context(StrContext::Label("year (lower)")),
 		// month
 		bits::take(4_usize)
-			.verify(|v| matches!(v, 1..=12 | 15))
+			.verify(|v| {
+				matches!(
+					v,
+					// NOTE: This should be 1..=12 but the libmbus test data has
+					// invalid dates in the following files:
+					// ACW_Itron-BM-plus-m.hex
+					// itron_bm_+m.hex
+					// siemens_water.hex
+					// siemens_wfh21.hex
+					0..=12 | 15
+				)
+			})
 			.context(StrContext::Label("month")),
 	)
 		.map(|(_, yu, day, yl, month): ((), u8, u8, u8, u8)| (day, month, yu + (yl << 3)))
@@ -130,6 +141,7 @@ mod test_type_g_date {
 	#[case::REL_Relay_Padpuls2__1([0xFF, 0x1C], [15, 12, 31])]
 	#[case::rel_padpuls2__0([0x1F, 0x0C], [0, 12, 31])]
 	#[case::rel_padpuls2__1([0x3F, 0x0C], [1, 12, 31])]
+	#[case::ACW_Itron_BM_plus_m__0([0x00, 0x00], [0, 0, 0])] // :/
 	#[allow(non_snake_case)]
 	fn test_file_values(#[case] input: [u8; 2], #[case] output: [u8; 3]) {
 		let input = Bytes::new(&input);
@@ -157,7 +169,6 @@ mod test_type_g_date {
 	}
 
 	#[rstest]
-	#[case::month_zero([0b111_00001, 0b0000_0000], "month")]
 	#[case::month_13([0b111_00001, 0b0000_1101], "month")]
 	#[case::month_14([0b111_00001, 0b0000_1110], "month")]
 	#[case::year_100([0b100_00001, 0b1100_0001], "year")]
