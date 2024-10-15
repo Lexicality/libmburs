@@ -47,10 +47,10 @@ impl Record {
 			// 	.map(DataType::DateTimeI)
 			// 	.context(StrContext::Label("Type I Date/Time"))
 			// 	.parse_next(input)?,
-			// ValueType::TypeJTime => TypeJTime::parse
-			// 	.map(DataType::Time)
-			// 	.context(StrContext::Label("Type J Time"))
-			// 	.parse_next(input)?,
+			ValueType::TypeJTime => TypeJTime::parse
+				.map(DataType::Time)
+				.context(StrContext::Label("Type J Time"))
+				.parse_next(input)?,
 			// ValueType::DSTTypeK => TypeKDST::parse
 			// 	.map(DataType::DST)
 			// 	.context(StrContext::Label("Daylight Savings Type K"))
