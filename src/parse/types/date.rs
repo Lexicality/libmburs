@@ -2,8 +2,10 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 
+use winnow::binary;
 use winnow::binary::bits;
 use winnow::combinator::peek;
+use winnow::combinator::repeat;
 use winnow::error::StrContext;
 use winnow::prelude::*;
 use winnow::Bytes;
@@ -61,6 +63,8 @@ pub struct TypeFDateTime {
 
 impl TypeFDateTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
+		let data = peek(repeat::<_, _, Vec<u8>, _, _>(4, binary::u8)).parse_next(input)?;
+		eprintln!("TYPE F DATE TIME: {data:#04X?}");
 		bits::bits((
 			bits::bool
 				.verify(|v| !v)
@@ -127,6 +131,8 @@ pub struct TypeIDateTime {
 
 impl TypeIDateTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
+		let data = peek(repeat::<_, _, Vec<u8>, _, _>(6, binary::u8)).parse_next(input)?;
+		eprintln!("TYPE I DATE TIME: {data:#04X?}");
 		bits::bits((
 			bits::bool.context(StrContext::Label("leap year")),
 			bits::bool.context(StrContext::Label("in dst")),
@@ -193,6 +199,8 @@ pub struct TypeJTime {
 
 impl TypeJTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
+		let data = peek(repeat::<_, _, Vec<u8>, _, _>(3, binary::u8)).parse_next(input)?;
+		eprintln!("TYPE J TIME: {data:#04X?}");
 		bits::bits((
 			bits::take::<_, u8, _, MBusError>(2_usize)
 				.verify(|v| *v == 0)
@@ -239,6 +247,8 @@ pub struct TypeKDST {
 
 impl TypeKDST {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
+		let data = peek(repeat::<_, _, Vec<u8>, _, _>(4, binary::u8)).parse_next(input)?;
+		eprintln!("TYPE K TIME: {data:#04X?}");
 		bits::bits::<_, _, MBusError, _, _>((
 			// byte 1
 			bits::take(3_usize).context(StrContext::Label("gmt deviation upper")),

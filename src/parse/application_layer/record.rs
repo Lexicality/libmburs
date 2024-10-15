@@ -1,6 +1,5 @@
 // Copyright 2024 Lexi Robinson
 // Licensed under the EUPL-1.2
-
 use libmbus_macros::vif;
 use winnow::binary;
 use winnow::combinator::{alt, repeat};
@@ -9,6 +8,7 @@ use winnow::prelude::*;
 use winnow::Bytes;
 
 use crate::parse::error::{MBResult, MBusError};
+#[allow(unused_imports)] // FIXME
 use crate::parse::types::date::{TypeFDateTime, TypeGDate, TypeIDateTime, TypeJTime, TypeKDST};
 use crate::parse::types::number::{
 	parse_bcd, parse_binary_signed, parse_binary_unsigned, parse_invalid_bcd, parse_real,
@@ -35,26 +35,26 @@ impl Record {
 
 		let unsigned = vib.value_type.is_unsigned();
 		let data = match vib.value_type {
-			ValueType::TypeFDateTime => TypeFDateTime::parse
-				.map(DataType::DateTimeF)
-				.context(StrContext::Label("Type F Date/Time"))
-				.parse_next(input)?,
+			// ValueType::TypeFDateTime => TypeFDateTime::parse
+			// 	.map(DataType::DateTimeF)
+			// 	.context(StrContext::Label("Type F Date/Time"))
+			// 	.parse_next(input)?,
 			ValueType::TypeGDate => TypeGDate::parse
 				.map(DataType::Date)
 				.context(StrContext::Label("Type G Date"))
 				.parse_next(input)?,
-			ValueType::TypeIDateTime => TypeIDateTime::parse
-				.map(DataType::DateTimeI)
-				.context(StrContext::Label("Type I Date/Time"))
-				.parse_next(input)?,
-			ValueType::TypeJTime => TypeJTime::parse
-				.map(DataType::Time)
-				.context(StrContext::Label("Type J Time"))
-				.parse_next(input)?,
-			ValueType::DSTTypeK => TypeKDST::parse
-				.map(DataType::DST)
-				.context(StrContext::Label("Daylight Savings Type K"))
-				.parse_next(input)?,
+			// ValueType::TypeIDateTime => TypeIDateTime::parse
+			// 	.map(DataType::DateTimeI)
+			// 	.context(StrContext::Label("Type I Date/Time"))
+			// 	.parse_next(input)?,
+			// ValueType::TypeJTime => TypeJTime::parse
+			// 	.map(DataType::Time)
+			// 	.context(StrContext::Label("Type J Time"))
+			// 	.parse_next(input)?,
+			// ValueType::DSTTypeK => TypeKDST::parse
+			// 	.map(DataType::DST)
+			// 	.context(StrContext::Label("Daylight Savings Type K"))
+			// 	.parse_next(input)?,
 			// TODO: I've commented this out as it means that these will simply
 			// parse as a large lvar number and it's the caller to parse it
 			// themselves. I need to figure out a good way of handling this.
