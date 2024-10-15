@@ -25,12 +25,12 @@ fn parse_dmy(input: &mut BitsInput<'_>) -> MBResult<(u8, u8, u8)> {
 		bits::take(3_usize).context(StrContext::Label("year (upper)")),
 		// Day
 		bits::take(5_usize)
-			.context(StrContext::Label("day"))
-			.verify(|v| matches!(v, 0..=31)),
+			.verify(|v| matches!(v, 0..=31))
+			.context(StrContext::Label("day")),
 		// month
 		bits::take(4_usize)
-			.context(StrContext::Label("month"))
-			.verify(|v| matches!(v, 1..=12 | 15)),
+			.verify(|v| matches!(v, 1..=12 | 15))
+			.context(StrContext::Label("month")),
 		// Year upper bits
 		bits::take(4_usize).context(StrContext::Label("year (lower)")),
 	)
@@ -63,21 +63,21 @@ impl TypeFDateTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
 		bits::bits::<_, _, MBusError, _, _>((
 			bits::bool
-				.context(StrContext::Label("invalid bit"))
 				.verify(|v| !v)
+				.context(StrContext::Label("invalid bit"))
 				.void(),
 			bits::bool
-				.context(StrContext::Label("reserved"))
 				.verify(|v| !v)
+				.context(StrContext::Label("reserved"))
 				.void(),
 			bits::take(6_usize)
-				.context(StrContext::Label("minute"))
-				.verify(|v| matches!(v, 0..=59 | 63)),
+				.verify(|v| matches!(v, 0..=59 | 63))
+				.context(StrContext::Label("minute")),
 			bits::bool.context(StrContext::Label("in_dst")),
 			bits::take(2_usize).context(StrContext::Label("hundred year")),
 			bits::take(5_usize)
-				.context(StrContext::Label("hour"))
-				.verify(|v| matches!(v, 0..=23 | 31)),
+				.verify(|v| matches!(v, 0..=23 | 31))
+				.context(StrContext::Label("hour")),
 			parse_dmy,
 		))
 		.map(
@@ -131,27 +131,27 @@ impl TypeIDateTime {
 			bits::bool.context(StrContext::Label("leap year")),
 			bits::bool.context(StrContext::Label("in dst")),
 			bits::take(6_usize)
-				.context(StrContext::Label("second"))
-				.verify(|v| matches!(v, 0..=59 | 63)),
+				.verify(|v| matches!(v, 0..=59 | 63))
+				.context(StrContext::Label("second")),
 			bits::bool
-				.context(StrContext::Label("invalid check"))
 				.verify(|v| !v)
+				.context(StrContext::Label("invalid check"))
 				.void(),
 			bits::bool.context(StrContext::Label("dst ±")),
 			bits::take(6_usize)
-				.context(StrContext::Label("minute"))
-				.verify(|v| matches!(v, 0..=59 | 63)),
+				.verify(|v| matches!(v, 0..=59 | 63))
+				.context(StrContext::Label("minute")),
 			bits::take(3_usize).context(StrContext::Label("day of week")),
 			bits::take(5_usize)
-				.context(StrContext::Label("hour"))
-				.verify(|v| matches!(v, 0..=23 | 31)),
+				.verify(|v| matches!(v, 0..=23 | 31))
+				.context(StrContext::Label("hour")),
 			parse_dmy,
 			bits::take(2_usize)
-				.context(StrContext::Label("dst offset"))
-				.try_map(|v: u8| v.try_into()),
+				.try_map(|v: u8| v.try_into())
+				.context(StrContext::Label("dst offset")),
 			bits::take(6_usize)
-				.context(StrContext::Label("dst offset"))
-				.verify(|v| matches!(v, 0..=53)),
+				.verify(|v| matches!(v, 0..=53))
+				.context(StrContext::Label("dst offset")),
 		))
 		.map(
 			|(
@@ -195,26 +195,26 @@ impl TypeJTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
 		bits::bits::<_, _, MBusError, _, _>((
 			bits::take::<_, u8, _, _>(2_usize)
-				.context(StrContext::Label("padding"))
 				.verify(|v| *v == 0)
+				.context(StrContext::Label("padding"))
 				.void(),
 			bits::take(6_usize)
-				.context(StrContext::Label("second"))
-				.verify(|v| matches!(v, 0..=59 | 63)),
+				.verify(|v| matches!(v, 0..=59 | 63))
+				.context(StrContext::Label("second")),
 			bits::take::<_, u8, _, _>(2_usize)
-				.context(StrContext::Label("padding"))
 				.verify(|v| *v == 0)
+				.context(StrContext::Label("padding"))
 				.void(),
 			bits::take(6_usize)
-				.context(StrContext::Label("minute"))
-				.verify(|v| matches!(v, 0..=59 | 63)),
+				.verify(|v| matches!(v, 0..=59 | 63))
+				.context(StrContext::Label("minute")),
 			bits::take::<_, u8, _, _>(3_usize)
-				.context(StrContext::Label("padding"))
 				.verify(|v| *v == 0)
+				.context(StrContext::Label("padding"))
 				.void(),
 			bits::take(5_usize)
-				.context(StrContext::Label("hour"))
-				.verify(|v| matches!(v, 0..=23 | 31)),
+				.verify(|v| matches!(v, 0..=23 | 31))
+				.context(StrContext::Label("hour")),
 		))
 		.map(|(_, second, _, minute, _, hour)| Self {
 			second,
@@ -243,29 +243,29 @@ impl TypeKDST {
 			// byte 1
 			bits::take(3_usize).context(StrContext::Label("gmt deviation upper")),
 			bits::take(5_usize)
-				.context(StrContext::Label("hour begins"))
-				.verify(|v| matches!(v, 0..=23 | 31)),
+				.verify(|v| matches!(v, 0..=23 | 31))
+				.context(StrContext::Label("hour begins")),
 			// byte 2
 			bits::bool.context(StrContext::Label("enable")),
 			bits::take(2_usize).context(StrContext::Label("gmt deviation lower")),
 			bits::take(5_usize)
-				.context(StrContext::Label("day begins"))
-				.verify(|v| matches!(v, 1..=31)),
+				.verify(|v| matches!(v, 1..=31))
+				.context(StrContext::Label("day begins")),
 			// byte 3
 			bits::bool.context(StrContext::Label("dst ±")),
 			bits::take(2_usize)
-				.context(StrContext::Label("dst deviation hours"))
-				.try_map(|v: u8| v.try_into()),
+				.try_map(|v: u8| v.try_into())
+				.context(StrContext::Label("dst deviation hours")),
 			bits::take(5_usize)
-				.context(StrContext::Label("day ends"))
-				.verify(|v| matches!(v, 1..=31)),
+				.verify(|v| matches!(v, 1..=31))
+				.context(StrContext::Label("day ends")),
 			// byte 4
 			bits::take(4_usize)
-				.context(StrContext::Label("month ends"))
-				.verify(|v| matches!(v, 1..=12)),
+				.verify(|v| matches!(v, 1..=12))
+				.context(StrContext::Label("month ends")),
 			bits::take(4_usize)
-				.context(StrContext::Label("month begins"))
-				.verify(|v| matches!(v, 1..=12)),
+				.verify(|v| matches!(v, 1..=12))
+				.context(StrContext::Label("month begins")),
 		))
 		.map(
 			|(

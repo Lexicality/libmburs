@@ -297,17 +297,17 @@ impl LongHeader {
 	pub fn parse(input: &mut &Bytes) -> MBResult<TPLHeader> {
 		(
 			parse_bcd(4)
-				.context(StrContext::Label("device identifier"))
 				.try_map(u32::try_from)
-				.with_recognized(),
+				.with_recognized()
+				.context(StrContext::Label("device identifier")),
 			binary::le_u16
-				.context(StrContext::Label("manufacturer"))
 				.verify_map(|raw| {
 					unpack_manufacturer_code(raw)
 						.ok()
 						.filter(|parsed| parsed.chars().all(|c| c.is_ascii_uppercase()))
 						.map(|parsed| (parsed, raw))
-				}),
+				})
+				.context(StrContext::Label("manufacturer")),
 			binary::u8.context(StrContext::Label("version")),
 			DeviceType::parse.context(StrContext::Label("device type")),
 			// The rest of the long header is simply the short header, so use that parser

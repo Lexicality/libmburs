@@ -63,8 +63,8 @@ impl Control {
 	fn parse(input: &mut &Bytes) -> MBResult<Self> {
 		bits::bits::<_, _, MBusError, _, _>((
 			bits::bool
-				.context(StrContext::Label("reserved"))
 				.verify(|v| !v)
+				.context(StrContext::Label("reserved"))
 				.void(),
 			bits::bool.context(StrContext::Label("PRM")),
 			bits::bool.context(StrContext::Label("FCB/ACD")),
