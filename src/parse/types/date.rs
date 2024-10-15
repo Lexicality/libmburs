@@ -13,29 +13,27 @@ use crate::parse::error::{MBResult, MBusError};
 use super::BitsInput;
 
 fn parse_dmy(input: &mut BitsInput<'_>) -> MBResult<(u8, u8, u8)> {
-	peek(
-		bits::take::<_, u16, _, _>(16_usize)
-			.verify(|v| *v != 0xFFFF)
-			.void(),
-	)
-	.context(StrContext::Label("invalid check"))
-	.parse_next(input)?;
 	(
-		// Year lower bits
+		peek(bits::take::<_, u16, _, _>(16_usize))
+			.verify(|v| *v != 0xFFFF)
+			.context(StrContext::Label("invalid check"))
+			.void(),
+		// Year upper bits
 		bits::take(3_usize).context(StrContext::Label("year (upper)")),
 		// Day
 		bits::take(5_usize)
 			.verify(|v| matches!(v, 0..=31))
 			.context(StrContext::Label("day")),
+		// Year lower bits
+		bits::take(4_usize).context(StrContext::Label("year (lower)")),
 		// month
 		bits::take(4_usize)
 			.verify(|v| matches!(v, 1..=12 | 15))
 			.context(StrContext::Label("month")),
-		// Year upper bits
-		bits::take(4_usize).context(StrContext::Label("year (lower)")),
 	)
-		.map(|(yu, day, month, yl): (u8, u8, u8, u8)| (day, month, yl + (yu << 3)))
+		.map(|(_, yu, day, yl, month): ((), u8, u8, u8, u8)| (day, month, yu + (yl << 3)))
 		.verify(|(_, _, y)| matches!(y, 0..=99 | 127))
+		.context(StrContext::Label("year"))
 		.parse_next(input)
 }
 
@@ -107,6 +105,71 @@ impl TypeGDate {
 		bits::bits(parse_dmy)
 			.map(|(day, month, year)| TypeGDate { day, month, year })
 			.parse_next(input)
+	}
+}
+
+#[cfg(test)]
+mod test_type_g_date {
+	use rstest::rstest;
+	use winnow::error::ErrorKind;
+	use winnow::error::StrContext;
+	use winnow::prelude::*;
+	use winnow::Bytes;
+
+	use super::TypeGDate;
+
+	#[rstest]
+	#[case::allmess_cf50([0x8C, 0x11], [12, 1, 12])]
+	#[case::EFE_Engelmann_WaterStar__0([0xBF, 0x1C], [13, 12, 31])]
+	#[case::EFE_Engelmann_WaterStar__1([0xDF, 0x1C], [14, 12, 31])]
+	#[case::minol_minocal_c2__0([0x81, 0x11], [12, 1, 1])]
+	#[case::minol_minocal_c2__8([0x61, 0x16], [11, 6, 1])]
+	#[case::minol_minocal_c2__9([0x81, 0x11], [12, 1, 1])]
+	#[case::ZRM_Minol_Minocal_C2__6([0xA1, 0x1A], [13, 10, 1])]
+	#[case::REL_Relay_Padpuls2__0([0xDF, 0x1C], [14, 12, 31])]
+	#[case::REL_Relay_Padpuls2__1([0xFF, 0x1C], [15, 12, 31])]
+	#[case::rel_padpuls2__0([0x1F, 0x0C], [0, 12, 31])]
+	#[case::rel_padpuls2__1([0x3F, 0x0C], [1, 12, 31])]
+	#[allow(non_snake_case)]
+	fn test_file_values(#[case] input: [u8; 2], #[case] output: [u8; 3]) {
+		let input = Bytes::new(&input);
+		let [year, month, day] = output;
+
+		let result = TypeGDate::parse.parse(input).unwrap();
+
+		assert_eq!(result.day, day, "days must match");
+		assert_eq!(result.month, month, "months must match");
+		assert_eq!(result.year, year, "years must match");
+	}
+
+	#[test]
+	fn test_explicit_invalid_value() {
+		let input = Bytes::new(&[0xFF, 0xFF]);
+
+		let result = TypeGDate::parse.parse(input).unwrap_err();
+
+		let err = result.inner();
+		assert_eq!(err.kind(), ErrorKind::Verify);
+		assert_eq!(
+			err.context().next(),
+			Some(&StrContext::Label("invalid check"))
+		);
+	}
+
+	#[rstest]
+	#[case::month_zero([0b111_00001, 0b0000_0000], "month")]
+	#[case::month_13([0b111_00001, 0b0000_1101], "month")]
+	#[case::month_14([0b111_00001, 0b0000_1110], "month")]
+	#[case::year_100([0b100_00001, 0b1100_0001], "year")]
+	#[case::year_126([0b110_00001, 0b1111_0001], "year")]
+	fn test_validation(#[case] input: [u8; 2], #[case] context: &'static str) {
+		let input = Bytes::new(&input);
+
+		let result = TypeGDate::parse.parse(input).unwrap_err();
+
+		let err = result.inner();
+		assert_eq!(err.kind(), ErrorKind::Verify);
+		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
 	}
 }
 
