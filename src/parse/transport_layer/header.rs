@@ -3,11 +3,11 @@
 #![allow(dead_code)]
 use winnow::binary;
 use winnow::combinator::peek;
-use winnow::error::{InputError, StrContext};
+use winnow::error::StrContext;
 use winnow::prelude::*;
 use winnow::Bytes;
 
-use crate::parse::error::MBResult;
+use crate::parse::error::{MBResult, MBusError};
 use crate::parse::types::number::parse_bcd;
 
 use super::manufacturer::{device_name, unpack_manufacturer_code};
@@ -48,7 +48,7 @@ pub struct MeterStatus {
 
 impl MeterStatus {
 	fn parse(input: &mut &Bytes) -> MBResult<MeterStatus> {
-		binary::bits::bits::<_, _, InputError<_>, _, _>((
+		binary::bits::bits::<_, _, MBusError, _, _>((
 			binary::bits::bool,
 			binary::bits::bool,
 			binary::bits::bool,
@@ -103,7 +103,7 @@ impl SecurityMode {
 		let raw_value = peek(binary::le_u16)
 			.context(StrContext::Label("Raw value peek"))
 			.parse_next(input)?;
-		(binary::bits::bits::<_, _, InputError<_>, _, _>((
+		(binary::bits::bits::<_, _, MBusError, _, _>((
 			binary::bits::take(8_usize).context(StrContext::Label("Security mode info low")),
 			binary::bits::take(5_usize).context(StrContext::Label("Security mode")),
 			binary::bits::take(3_usize).context(StrContext::Label("Security mode info high")),

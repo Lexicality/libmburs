@@ -61,7 +61,7 @@ pub struct TypeFDateTime {
 
 impl TypeFDateTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
-		bits::bits::<_, _, MBusError, _, _>((
+		bits::bits((
 			bits::bool
 				.verify(|v| !v)
 				.context(StrContext::Label("invalid bit"))
@@ -193,8 +193,8 @@ pub struct TypeJTime {
 
 impl TypeJTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
-		bits::bits::<_, _, MBusError, _, _>((
-			bits::take::<_, u8, _, _>(2_usize)
+		bits::bits((
+			bits::take::<_, u8, _, MBusError>(2_usize)
 				.verify(|v| *v == 0)
 				.context(StrContext::Label("padding"))
 				.void(),

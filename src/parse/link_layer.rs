@@ -61,7 +61,7 @@ pub enum Control {
 
 impl Control {
 	fn parse(input: &mut &Bytes) -> MBResult<Self> {
-		bits::bits::<_, _, MBusError, _, _>((
+		bits::bits((
 			bits::bool
 				.verify(|v| !v)
 				.context(StrContext::Label("reserved"))
@@ -69,7 +69,7 @@ impl Control {
 			bits::bool.context(StrContext::Label("PRM")),
 			bits::bool.context(StrContext::Label("FCB/ACD")),
 			bits::bool.context(StrContext::Label("FCV/DFC")),
-			bits::take::<_, u8, _, _>(4_usize).context(StrContext::Label("function")),
+			bits::take::<_, u8, _, MBusError>(4_usize).context(StrContext::Label("function")),
 		))
 		.verify_map(|(_, prm, fcb_acd, fcv_dfc, function)| {
 			Some(if prm {

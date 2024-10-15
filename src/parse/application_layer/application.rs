@@ -4,12 +4,12 @@
 
 use winnow::binary;
 use winnow::combinator::{alt, eof, repeat};
-use winnow::error::{AddContext, ErrMode, ErrorKind, InputError, ParserError, StrContext};
+use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
 use winnow::Bytes;
 
-use crate::parse::error::MBResult;
+use crate::parse::error::{MBResult, MBusError};
 
 use super::record::Record;
 
@@ -121,7 +121,7 @@ impl ApplicationMessage {
 			eof.void().default_value(),
 			repeat(
 				1..=10,
-				binary::bits::bits::<_, _, InputError<_>, _, _>((
+				binary::bits::bits::<_, _, MBusError, _, _>((
 					binary::bits::take(4_usize),
 					binary::bits::take(4_usize),
 				)),
