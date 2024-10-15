@@ -267,8 +267,12 @@ pub struct TypeJTime {
 
 impl TypeJTime {
 	pub fn parse(input: &mut &Bytes) -> MBResult<Self> {
-		bits::bits((
-			bits::take::<_, u8, _, MBusError>(2_usize)
+		bits::bits::<_, _, MBusError, _, _>((
+			peek(bits::take::<_, u32, _, _>(24_usize))
+				.verify(|v| *v != 0xFFFFFF)
+				.context(StrContext::Label("invalid check"))
+				.void(),
+			bits::take::<_, u8, _, _>(2_usize)
 				.verify(|v| *v == 0)
 				.context(StrContext::Label("padding"))
 				.void(),
@@ -290,12 +294,74 @@ impl TypeJTime {
 				.verify(|v| matches!(v, 0..=23 | 31))
 				.context(StrContext::Label("hour")),
 		))
-		.map(|(_, second, _, minute, _, hour)| Self {
+		.map(|(_, _, second, _, minute, _, hour)| Self {
 			second,
 			minute,
 			hour,
 		})
 		.parse_next(input)
+	}
+}
+
+#[cfg(test)]
+mod test_type_j_time {
+	use rstest::rstest;
+	use winnow::error::ErrorKind;
+	use winnow::error::StrContext;
+	use winnow::prelude::*;
+	use winnow::Bytes;
+
+	use super::TypeJTime;
+	#[rstest]
+	#[case::zero([0, 0, 0], TypeJTime{hour: 0, minute: 0, second: 0})]
+	#[case::max_hours([0, 0, 23], TypeJTime{hour: 23, minute: 0, second: 0})]
+	#[case::max_mins([0, 59, 0], TypeJTime{hour: 0, minute: 59, second: 0})]
+	#[case::max_secs([59, 0, 0], TypeJTime{hour: 0, minute: 0, second: 59})]
+	#[case::all_the_time([63, 63, 31], TypeJTime{hour: 31, minute: 63, second: 63})]
+	fn test_works(#[case] input: [u8; 3], #[case] expected: TypeJTime) {
+		let input = Bytes::new(&input);
+
+		let result = TypeJTime::parse.parse(input).unwrap();
+
+		assert_eq!(result, expected);
+	}
+
+	#[rstest]
+	fn test_padding(
+		// It's "great" how simple it is to generate 64 tests with such a simple
+		// block of code, right?
+		#[values(0b00, 0b01, 0b10, 0b11)] first_byte: u8,
+		#[values(0b00, 0b01, 0b10, 0b11)] second_byte: u8,
+		#[values(0b00, 0b01, 0b10, 0b11)] third_byte: u8,
+	) {
+		// If all of them are 0, the value is actually valid
+		if first_byte == 0 && second_byte == 0 && third_byte == 0 {
+			return;
+		}
+
+		let input = [first_byte << 6, second_byte << 6, third_byte << 6];
+		let input = Bytes::new(&input);
+
+		let result = TypeJTime::parse.parse(input).unwrap_err();
+
+		let err = result.inner();
+		assert_eq!(err.kind(), ErrorKind::Verify);
+		assert_eq!(err.context().next(), Some(&StrContext::Label("padding")));
+	}
+
+	#[rstest]
+	#[case::invalid([0xFF, 0xFF, 0xFF], "invalid check")]
+	#[case::max_hours([0, 0, 24], "hour")]
+	#[case::max_mins([0, 60, 0], "minute")]
+	#[case::max_secs([60, 0, 0], "second")]
+	fn test_validation(#[case] input: [u8; 3], #[case] context: &'static str) {
+		let input = Bytes::new(&input);
+
+		let result = TypeJTime::parse.parse(input).unwrap_err();
+
+		let err = result.inner();
+		assert_eq!(err.kind(), ErrorKind::Verify);
+		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
 	}
 }
 
