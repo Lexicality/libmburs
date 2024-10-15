@@ -1,11 +1,11 @@
 // Copyright 2024 Lexi Robinson
 // Licensed under the EUPL-1.2
 
+use libmbus_macros::vif;
 use winnow::binary;
 use winnow::combinator::{alt, repeat};
-use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
+use winnow::error::StrContext;
 use winnow::prelude::*;
-use winnow::stream::Stream;
 use winnow::Bytes;
 
 use crate::parse::error::{MBResult, MBusError};
@@ -31,23 +31,30 @@ impl Record {
 		let (dib, vib) =
 			binary::bits::bits((DataInfoBlock::parse, ValueInfoBlock::parse)).parse_next(input)?;
 
+		let vib = handle_date_types(&dib, vib);
+
 		let unsigned = vib.value_type.is_unsigned();
 		let data = match vib.value_type {
-			ValueType::TypeFDateTime => {
-				parse_date(dib.raw_type, 4, TypeFDateTime::parse, input).map(DataType::DateTimeF)?
-			}
-			ValueType::TypeGDate => {
-				parse_date(dib.raw_type, 2, TypeGDate::parse, input).map(DataType::Date)?
-			}
-			ValueType::TypeIDateTime => {
-				parse_date(dib.raw_type, 5, TypeIDateTime::parse, input).map(DataType::DateTimeI)?
-			}
-			ValueType::TypeJTime => {
-				parse_date(dib.raw_type, 3, TypeJTime::parse, input).map(DataType::Time)?
-			}
-			ValueType::DSTTypeK => {
-				parse_date(dib.raw_type, 4, TypeKDST::parse, input).map(DataType::DST)?
-			}
+			ValueType::TypeFDateTime => TypeFDateTime::parse
+				.map(DataType::DateTimeF)
+				.context(StrContext::Label("Type F Date/Time"))
+				.parse_next(input)?,
+			ValueType::TypeGDate => TypeGDate::parse
+				.map(DataType::Date)
+				.context(StrContext::Label("Type G Date"))
+				.parse_next(input)?,
+			ValueType::TypeIDateTime => TypeIDateTime::parse
+				.map(DataType::DateTimeI)
+				.context(StrContext::Label("Type I Date/Time"))
+				.parse_next(input)?,
+			ValueType::TypeJTime => TypeJTime::parse
+				.map(DataType::Time)
+				.context(StrContext::Label("Type J Time"))
+				.parse_next(input)?,
+			ValueType::DSTTypeK => TypeKDST::parse
+				.map(DataType::DST)
+				.context(StrContext::Label("Daylight Savings Type K"))
+				.parse_next(input)?,
 			// TODO: I've commented this out as it means that these will simply
 			// parse as a large lvar number and it's the caller to parse it
 			// themselves. I need to figure out a good way of handling this.
@@ -119,20 +126,20 @@ fn parse_giant_number<'a>(bytes: usize) -> impl Parser<&'a Bytes, DataType, MBus
 	repeat(bytes, binary::u8).map(DataType::VariableLengthNumber)
 }
 
-fn parse_date<I: Stream, O, P: Parser<I, O, MBusError>>(
-	raw_data_type: RawDataType,
-	num_bytes: usize,
-	mut parse_next: P,
-	input: &mut I,
-) -> MBResult<O> {
-	if !matches!(raw_data_type, RawDataType::Binary(n) if n == num_bytes) {
-		return Err(ErrMode::from_error_kind(input, ErrorKind::Verify)
-			.add_context(
-				input,
-				&input.checkpoint(),
-				StrContext::Label("number of bytes check"),
-			)
-			.cut());
-	}
-	parse_next.parse_next(input)
+fn handle_date_types(dib: &DataInfoBlock, mut vib: ValueInfoBlock) -> ValueInfoBlock {
+	vib.value_type = match vib.value_type {
+		ValueType::TypeGDate => match dib.raw_type {
+			RawDataType::Binary(2) => ValueType::TypeGDate,
+			_ => ValueType::Invalid(vif!(E110 1100)),
+		},
+		ValueType::VariableDateTime => match dib.raw_type {
+			RawDataType::LVAR => ValueType::TypeMDatetime,
+			RawDataType::Binary(4) => ValueType::TypeFDateTime,
+			RawDataType::Binary(3) => ValueType::TypeJTime,
+			RawDataType::Binary(5) => ValueType::TypeIDateTime,
+			_ => ValueType::Invalid(vif!(E110 1101)),
+		},
+		vt => vt,
+	};
+	vib
 }
