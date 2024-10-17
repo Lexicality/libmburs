@@ -90,17 +90,102 @@ impl TypeFDateTime {
 			parse_dmy,
 		))
 		.map(
-			|(_, _, minute, in_dst, hundred_year, hour, (day, month, year))| TypeFDateTime {
+			|(
+				_,
+				_,
 				minute,
 				in_dst,
+				mut hundred_year,
 				hour,
-				day,
-				month,
-				year,
-				hundred_year,
+				(day, month, year),
+				//
+			)| {
+				// EN 13757-3:2018 Annex A table A.5 footnote a:
+				// "For compatibility with old meters with a circular two digit
+				// date it is recommended to consider in any master software the
+				// years “00” to “80” as the years 2000 to 2080.""
+				if hundred_year == 0 && year <= 80 {
+					hundred_year = 1;
+				}
+				TypeFDateTime {
+					minute,
+					in_dst,
+					hour,
+					day,
+					month,
+					year,
+					hundred_year,
+				}
 			},
 		)
 		.parse_next(input)
+	}
+}
+
+#[cfg(test)]
+mod test_type_f_date_time {
+	use rstest::rstest;
+	use winnow::error::ErrorKind;
+	use winnow::error::StrContext;
+	use winnow::prelude::*;
+	use winnow::Bytes;
+
+	use super::TypeFDateTime;
+
+	#[rstest]
+	#[case::ACW_Itron_BM_plus_m__0([0x0B, 0x0B, 0xCD, 0x13], TypeFDateTime{
+		hundred_year: 1,
+		year: 14,
+		in_dst: false,
+		month: 3,
+		day: 13,
+		hour: 11,
+		minute: 11,
+	})]
+	#[case::amt_calec_mb([0x10, 0x09, 0x05, 0xC5], TypeFDateTime{
+		hundred_year: 0,
+		year: 96,
+		in_dst: false,
+		month: 5,
+		day: 5,
+		hour: 9,
+		minute: 16,
+	})]
+	#[case::kamstrup_multical_601([0x1A, 0x2F, 0x65, 0x11], TypeFDateTime{
+		hundred_year: 1,
+		year: 11,
+		month: 1,
+		day: 5,
+		hour: 15,
+		minute: 26,
+		in_dst: false,
+	})]
+	#[allow(non_snake_case)]
+	fn test_file_values(#[case] input: [u8; 4], #[case] expected: TypeFDateTime) {
+		let input = Bytes::new(&input);
+
+		let result = TypeFDateTime::parse.parse(input).unwrap();
+
+		assert_eq!(result, expected);
+	}
+
+	#[rstest]
+	#[case::REL_Relay_Padpuls2([0xA1, 0x15, 0xE9, 0x17], "invalid bit")]
+	#[case::invalid_bit([0b1000_0000, 0x00, 0x01, 0x01], "invalid bit")]
+	#[case::reserved_bit([0b0100_0000, 0x00, 0x01, 0x01], "reserved")]
+	#[case::invalid_minute([0x3C, 0x00, 0x01, 0x01], "minute")]
+	#[case::invalid_hour([0x00, 0x18, 0x01, 0x01], "hour")]
+	#[case::invalid_month([0x00, 0x00, 0b111_00001, 0b0000_1101], "month")]
+	#[case::invalid_year([0x00, 0x00, 0b100_00001, 0b1100_0001], "year")]
+	#[allow(non_snake_case)]
+	fn test_validation(#[case] input: [u8; 4], #[case] context: &'static str) {
+		let input = Bytes::new(&input);
+
+		let result = TypeFDateTime::parse.parse(input).unwrap_err();
+
+		let err = result.inner();
+		assert_eq!(err.kind(), ErrorKind::Verify);
+		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
 	}
 }
 
