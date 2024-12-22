@@ -226,8 +226,8 @@ fn parse_ack(_input: &mut &Bytes) -> MBResult<Packet> {
 	Ok(Packet::Ack)
 }
 
-impl<'a> Packet {
-	pub fn parse(input: &mut &'a Bytes) -> MBResult<Packet> {
+impl Packet {
+	pub fn parse(input: &mut &Bytes) -> MBResult<Packet> {
 		alt((
 			preceded(
 				LONG_FRAME_HEADER.void(),
