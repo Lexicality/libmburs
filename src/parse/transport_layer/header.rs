@@ -298,7 +298,7 @@ impl LongHeader {
 		(
 			parse_bcd(4)
 				.try_map(u32::try_from)
-				.with_recognized()
+				.with_taken()
 				.context(StrContext::Label("device identifier")),
 			binary::le_u16
 				.verify_map(|raw| {

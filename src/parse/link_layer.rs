@@ -143,7 +143,7 @@ fn parse_variable(input: &mut &Bytes) -> MBResult<Packet> {
 	let ((control, raw_control), address) = (
 		Control::parse
 			.context(StrContext::Label("control byte"))
-			.with_recognized()
+			.with_taken()
 			.map(|(control, raw_slice)| (control, raw_slice[0])),
 		binary::u8.context(StrContext::Label("address byte")),
 	)
@@ -200,7 +200,7 @@ fn parse_fixed(input: &mut &Bytes) -> MBResult<Packet> {
 	let ((control, raw_control), address, checksum, _) = (
 		Control::parse
 			.context(StrContext::Label("control byte"))
-			.with_recognized()
+			.with_taken()
 			.map(|(control, raw_slice)| (control, raw_slice[0])),
 		binary::u8.context(StrContext::Label("address byte")),
 		binary::u8.context(StrContext::Label("checksum")),

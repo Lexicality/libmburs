@@ -28,7 +28,7 @@ pub fn parse_latin1<'a>(num_bytes: usize) -> impl Parser<&'a Bytes, String, MBus
 		} else {
 			repeat::<_, _, (), _, _>(num_bytes, binary::u8)
 				.context(StrContext::Label("latin-1 string"))
-				.recognize()
+				.take()
 				.map(|data| WINDOWS_1252.decode(data).0.chars().rev().collect())
 				.parse_next(input)
 		}
