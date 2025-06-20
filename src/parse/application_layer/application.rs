@@ -4,7 +4,7 @@
 
 use winnow::binary;
 use winnow::combinator::{alt, eof, repeat};
-use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
+use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
 use winnow::Bytes;
@@ -75,13 +75,11 @@ impl ApplicationErrorMessage {
 					.parse_next(input)?,
 			),
 			_ => {
-				return Err(
-					ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
-						input,
-						&error_code_checkpoint,
-						StrContext::Label("reserved error code"),
-					),
-				);
+				return Err(ErrMode::from_input(input).add_context(
+					input,
+					&error_code_checkpoint,
+					StrContext::Label("reserved error code"),
+				));
 			}
 		})
 	}

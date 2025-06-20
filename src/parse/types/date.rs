@@ -125,7 +125,6 @@ impl TypeFDateTime {
 #[cfg(test)]
 mod test_type_f_date_time {
 	use rstest::rstest;
-	use winnow::error::ErrorKind;
 	use winnow::error::StrContext;
 	use winnow::prelude::*;
 	use winnow::Bytes;
@@ -184,7 +183,6 @@ mod test_type_f_date_time {
 		let result = TypeFDateTime::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.kind(), ErrorKind::Verify);
 		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
 	}
 }
@@ -207,7 +205,6 @@ impl TypeGDate {
 #[cfg(test)]
 mod test_type_g_date {
 	use rstest::rstest;
-	use winnow::error::ErrorKind;
 	use winnow::error::StrContext;
 	use winnow::prelude::*;
 	use winnow::Bytes;
@@ -246,7 +243,6 @@ mod test_type_g_date {
 		let result = TypeGDate::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.kind(), ErrorKind::Verify);
 		assert_eq!(
 			err.context().next(),
 			Some(&StrContext::Label("invalid check"))
@@ -264,7 +260,6 @@ mod test_type_g_date {
 		let result = TypeGDate::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.kind(), ErrorKind::Verify);
 		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
 	}
 }
@@ -391,7 +386,6 @@ impl TypeJTime {
 #[cfg(test)]
 mod test_type_j_time {
 	use rstest::rstest;
-	use winnow::error::ErrorKind;
 	use winnow::error::StrContext;
 	use winnow::prelude::*;
 	use winnow::Bytes;
@@ -430,7 +424,6 @@ mod test_type_j_time {
 		let result = TypeJTime::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.kind(), ErrorKind::Verify);
 		assert_eq!(err.context().next(), Some(&StrContext::Label("padding")));
 	}
 
@@ -445,7 +438,6 @@ mod test_type_j_time {
 		let result = TypeJTime::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.kind(), ErrorKind::Verify);
 		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
 	}
 }

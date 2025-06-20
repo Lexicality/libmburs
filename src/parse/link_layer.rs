@@ -4,7 +4,7 @@
 use winnow::binary;
 use winnow::binary::bits;
 use winnow::combinator::{alt, cut_err, preceded};
-use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
+use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
 use winnow::Bytes;
@@ -151,13 +151,11 @@ fn parse_variable(input: &mut &Bytes) -> MBResult<Packet> {
 	let length = length.into();
 	// There are two bytes after the input
 	if input.len() < length {
-		return Err(
-			ErrMode::from_error_kind(input, ErrorKind::Slice).add_context(
-				input,
-				&input.checkpoint(),
-				StrContext::Label("packet data"),
-			),
-		);
+		return Err(ErrMode::from_input(input).add_context(
+			input,
+			&input.checkpoint(),
+			StrContext::Label("packet data"),
+		));
 	}
 	let data = input.next_slice(length - 2);
 	let (checksum, _) = (
@@ -175,13 +173,11 @@ fn parse_variable(input: &mut &Bytes) -> MBResult<Packet> {
 		.wrapping_add(address);
 
 	if sum != checksum {
-		return Err(
-			ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
-				input,
-				&input.checkpoint(),
-				StrContext::Label("checksum verify"),
-			),
-		);
+		return Err(ErrMode::from_input(input).add_context(
+			input,
+			&input.checkpoint(),
+			StrContext::Label("checksum verify"),
+		));
 	}
 
 	let mut data = Bytes::new(data);
@@ -210,13 +206,11 @@ fn parse_fixed(input: &mut &Bytes) -> MBResult<Packet> {
 
 	let sum = raw_control.wrapping_add(address);
 	if sum != checksum {
-		return Err(
-			ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
-				input,
-				&input.checkpoint(),
-				StrContext::Label("checksum verify"),
-			),
-		);
+		return Err(ErrMode::from_input(input).add_context(
+			input,
+			&input.checkpoint(),
+			StrContext::Label("checksum verify"),
+		));
 	}
 
 	Ok(Packet::Short { control, address })

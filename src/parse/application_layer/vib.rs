@@ -7,7 +7,7 @@ use crate::parse::types::string::parse_length_prefix_ascii;
 use crate::parse::types::BitsInput;
 use libmbus_macros::vif;
 use winnow::binary::bits;
-use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
+use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
 
@@ -61,13 +61,11 @@ impl ValueInfoBlock {
 			(_, value) if value <= 0b0111_1010 => parse_table_10(value),
 			(true, VIF_EXTENSION_1 | VIF_EXTENSION_2) => {
 				if !extension {
-					return Err(
-						ErrMode::from_error_kind(input, ErrorKind::Verify).add_context(
-							input,
-							&vif_checkpoint,
-							StrContext::Label("vife missing for vif extension"),
-						),
-					);
+					return Err(ErrMode::from_input(input).add_context(
+						input,
+						&vif_checkpoint,
+						StrContext::Label("vife missing for vif extension"),
+					));
 				}
 				let vife_checkpoint = input.checkpoint();
 				let value: u8;
@@ -76,12 +74,11 @@ impl ValueInfoBlock {
 					.parse_next(input)?;
 				if raw_value == VIF_EXTENSION_2 && value == VIF_EXTENSION_2 {
 					if !extension {
-						return Err(ErrMode::from_error_kind(input, ErrorKind::Verify)
-							.add_context(
-								input,
-								&vife_checkpoint,
-								StrContext::Label("vife missing for vif extension level 2"),
-							));
+						return Err(ErrMode::from_input(input).add_context(
+							input,
+							&vife_checkpoint,
+							StrContext::Label("vife missing for vif extension level 2"),
+						));
 					}
 					let value: u8;
 					(extension, value) = parse_vif_byte

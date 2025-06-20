@@ -3,7 +3,7 @@
 
 use winnow::binary;
 use winnow::combinator::repeat;
-use winnow::error::{AddContext, ErrMode, ErrorKind, ParserError, StrContext};
+use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
 use winnow::Bytes;
@@ -65,7 +65,6 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 
 #[cfg(test)]
 mod test_parse_bcd {
-	use winnow::error::ErrorKind;
 	use winnow::{Bytes, Parser};
 
 	use super::parse_bcd;
@@ -153,12 +152,25 @@ mod test_parse_bcd {
 	}
 
 	#[test]
-	fn test_parse_not_enough_data() {
+	fn test_parse_not_enough_data_1() {
+		let input = Bytes::new(&[0x12]);
+
+		let result = parse_bcd(3).parse(input).unwrap_err();
+
+		let ctx = result.inner().context().next().unwrap().to_string();
+
+		assert_eq!(ctx, "invalid initial bytes");
+	}
+
+	#[test]
+	fn test_parse_not_enough_data_2() {
 		let input = Bytes::new(&[0x12]);
 
 		let result = parse_bcd(2).parse(input).unwrap_err();
 
-		assert_eq!(result.inner().kind(), ErrorKind::Eof);
+		let ctx = result.inner().context().next().unwrap().to_string();
+
+		assert_eq!(ctx, "invalid final byte");
 	}
 
 	#[test]
@@ -177,12 +189,9 @@ mod test_parse_bcd {
 
 			let result = parse_bcd(1).parse(input).unwrap_err();
 
-			assert_eq!(
-				result.inner().kind(),
-				ErrorKind::Verify,
-				"cannot parse invalid BCD byte {:#X}",
-				byte[0]
-			);
+			let ctx = result.inner().context().next().unwrap().to_string();
+
+			assert_eq!(ctx, "invalid final byte");
 		}
 	}
 }
@@ -227,7 +236,6 @@ pub fn parse_invalid_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, String, MBu
 
 #[cfg(test)]
 mod test_parse_invalid_bcd {
-	use winnow::error::ErrorKind;
 	use winnow::{Bytes, Parser};
 
 	use super::parse_invalid_bcd;
@@ -287,12 +295,25 @@ mod test_parse_invalid_bcd {
 	}
 
 	#[test]
-	fn test_parse_not_enough_data() {
+	fn test_parse_not_enough_data_1() {
+		let input = Bytes::new(&[0x12]);
+
+		let result = parse_invalid_bcd(3).parse(input).unwrap_err();
+
+		let ctx = result.inner().context().next().unwrap().to_string();
+
+		assert_eq!(ctx, "invalid initial bytes");
+	}
+
+	#[test]
+	fn test_parse_not_enough_data_2() {
 		let input = Bytes::new(&[0x12]);
 
 		let result = parse_invalid_bcd(2).parse(input).unwrap_err();
 
-		assert_eq!(result.inner().kind(), ErrorKind::Eof);
+		let ctx = result.inner().context().next().unwrap().to_string();
+
+		assert_eq!(ctx, "invalid final byte");
 	}
 
 	#[test]
@@ -326,19 +347,17 @@ pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBus
 			n if n > 8 => Err(ErrMode::assert(input, "cannot parse more than 8 bytes")),
 			n => {
 				if input.len() < n {
-					return Err(
-						ErrMode::from_error_kind(input, ErrorKind::Slice).add_context(
-							input,
-							&input.checkpoint(),
-							StrContext::Label(match n {
-								3 => "24-bit signed number",
-								5 => "40-bit signed number",
-								6 => "48-bit signed number",
-								7 => "56-bit signed number",
-								_ => unreachable!(),
-							}),
-						),
-					);
+					return Err(ErrMode::from_input(input).add_context(
+						input,
+						&input.checkpoint(),
+						StrContext::Label(match n {
+							3 => "24-bit signed number",
+							5 => "40-bit signed number",
+							6 => "48-bit signed number",
+							7 => "56-bit signed number",
+							_ => unreachable!(),
+						}),
+					));
 				}
 				let offset = 8 - n;
 				let mut data = [0; 8];
@@ -355,7 +374,6 @@ pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBus
 #[cfg(test)]
 mod test_parse_binary_signed {
 	use super::parse_binary_signed;
-	use winnow::error::ErrorKind;
 	use winnow::{Bytes, Parser};
 
 	#[test]
@@ -472,9 +490,9 @@ mod test_parse_binary_signed {
 	fn test_parse_not_enough_data() {
 		let input = Bytes::new(&[0x12]);
 
-		let result = parse_binary_signed(2).parse(input).unwrap_err();
-
-		assert_eq!(result.inner().kind(), ErrorKind::Slice);
+		let result = parse_binary_signed(2).parse(input);
+		// TODO: there's no context on this error
+		assert!(result.is_err());
 	}
 }
 
@@ -490,19 +508,17 @@ pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl Parser<&'a Bytes, u64, MB
 			n if n > 8 => Err(ErrMode::assert(input, "cannot parse more than 8 bytes")),
 			n => {
 				if input.len() < n {
-					return Err(
-						ErrMode::from_error_kind(input, ErrorKind::Slice).add_context(
-							input,
-							&input.checkpoint(),
-							StrContext::Label(match n {
-								3 => "24-bit unsigned number",
-								5 => "40-bit unsigned number",
-								6 => "48-bit unsigned number",
-								7 => "56-bit unsigned number",
-								_ => unreachable!(),
-							}),
-						),
-					);
+					return Err(ErrMode::from_input(input).add_context(
+						input,
+						&input.checkpoint(),
+						StrContext::Label(match n {
+							3 => "24-bit unsigned number",
+							5 => "40-bit unsigned number",
+							6 => "48-bit unsigned number",
+							7 => "56-bit unsigned number",
+							_ => unreachable!(),
+						}),
+					));
 				}
 				let mut data = [0; 8];
 				for (i, byte) in input.next_slice(n).iter().enumerate() {
@@ -517,7 +533,6 @@ pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl Parser<&'a Bytes, u64, MB
 #[cfg(test)]
 mod test_parse_binary_unsigned {
 	use super::parse_binary_unsigned;
-	use winnow::error::ErrorKind;
 	use winnow::{Bytes, Parser};
 
 	#[test]
@@ -614,9 +629,9 @@ mod test_parse_binary_unsigned {
 	fn test_parse_not_enough_data() {
 		let input = Bytes::new(&[0x12]);
 
-		let result = parse_binary_unsigned(2).parse(input).unwrap_err();
-
-		assert_eq!(result.inner().kind(), ErrorKind::Slice);
+		let result = parse_binary_unsigned(2).parse(input);
+		// TODO: there's no context on this error
+		assert!(result.is_err());
 	}
 }
 
