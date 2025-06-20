@@ -5,7 +5,7 @@ use winnow::error::{
 	StrContext,
 };
 use winnow::stream::Stream;
-use winnow::PResult;
+use winnow::ModalResult;
 
 /// Because the version of Winnow we're using doesn't let you use `ContextError`
 /// with the bit-level parsers I've had to wrap it in a struct I control so I
@@ -13,7 +13,7 @@ use winnow::PResult;
 #[derive(Debug, Clone, PartialEq)]
 pub struct MBusError(ContextError<StrContext>, ErrorKind);
 
-pub type MBResult<O> = PResult<O, MBusError>;
+pub type MBResult<O> = ModalResult<O, MBusError>;
 
 impl MBusError {
 	pub fn new() -> Self {
