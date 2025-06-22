@@ -108,7 +108,7 @@ impl Record {
 pub fn parse_binary<'a>(
 	unsigned: bool,
 	bytes: usize,
-) -> impl Parser<&'a Bytes, DataType, MBusError> {
+) -> impl ModalParser<&'a Bytes, DataType, MBusError> {
 	move |input: &mut &'a Bytes| {
 		if unsigned {
 			parse_binary_unsigned(bytes)
@@ -122,7 +122,7 @@ pub fn parse_binary<'a>(
 	}
 }
 
-fn parse_giant_number<'a>(bytes: usize) -> impl Parser<&'a Bytes, DataType, MBusError> {
+fn parse_giant_number<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, DataType, MBusError> {
 	repeat(bytes, binary::u8).map(DataType::VariableLengthNumber)
 }
 

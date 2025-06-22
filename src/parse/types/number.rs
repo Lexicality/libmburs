@@ -20,7 +20,7 @@ fn parse_bcd_nibble(input: &mut BitsInput<'_>) -> MBResult<i64> {
 	parse_nibble.verify(|v| *v < 10).parse_next(input)
 }
 
-pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
+pub fn parse_bcd<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, i64, MBusError> {
 	let parser = move |input: &mut BitsInput<'a>| {
 		if bytes == 0 {
 			return Ok(0);
@@ -202,7 +202,7 @@ fn parse_hex_nibble(input: &mut BitsInput<'_>) -> MBResult<char> {
 		.parse_next(input)
 }
 
-pub fn parse_invalid_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, String, MBusError> {
+pub fn parse_invalid_bcd<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, String, MBusError> {
 	let parser = move |input: &mut BitsInput<'a>| {
 		if bytes == 0 {
 			return Ok("".to_owned());
@@ -335,7 +335,7 @@ mod test_parse_invalid_bcd {
 	}
 }
 
-pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
+pub fn parse_binary_signed<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, i64, MBusError> {
 	move |input: &mut &'a Bytes| {
 		match bytes {
 			0 => Ok(0),
@@ -496,7 +496,7 @@ mod test_parse_binary_signed {
 	}
 }
 
-pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl Parser<&'a Bytes, u64, MBusError> {
+pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, u64, MBusError> {
 	move |input: &mut &'a Bytes| {
 		match bytes {
 			0 => Ok(0),
