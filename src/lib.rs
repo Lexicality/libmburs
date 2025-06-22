@@ -21,7 +21,7 @@ pub mod utils {
 	}
 
 	pub fn fancy_error(error: &MBusError) {
-		eprint!("{}: ", error.kind());
+		// eprint!("{}: ", error.kind());
 		if let Some(cause) = error.cause() {
 			eprintln!("{}", cause);
 		}

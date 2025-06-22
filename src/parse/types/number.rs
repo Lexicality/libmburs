@@ -205,7 +205,7 @@ fn parse_hex_nibble(input: &mut BitsInput<'_>) -> MBResult<char> {
 pub fn parse_invalid_bcd<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, String, MBusError> {
 	let parser = move |input: &mut BitsInput<'a>| {
 		if bytes == 0 {
-			return Ok("".to_owned());
+			return Ok::<_, ErrMode<MBusError>>("".to_owned());
 		}
 		let mut initial_bytes: Vec<(char, char)> =
 			repeat(bytes - 1, (parse_hex_nibble, parse_hex_nibble))
