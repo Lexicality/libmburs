@@ -6,7 +6,7 @@ use winnow::binary::bits;
 use winnow::combinator::{alt, cut_err, preceded};
 use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
 use winnow::prelude::*;
-use winnow::stream::Stream;
+use winnow::stream::{Stream, StreamIsPartial};
 use winnow::token::take;
 use winnow::Bytes;
 
@@ -61,7 +61,10 @@ pub enum Control {
 }
 
 impl Control {
-	fn parse(input: &mut &Bytes) -> MBResult<Self> {
+	fn parse<Input>(input: &mut Input) -> MBResult<Self>
+	where
+		Input: StreamIsPartial + Stream<Token = u8> + Clone,
+	{
 		bits::bits((
 			bits::bool
 				.verify(|v| !v)
@@ -128,7 +131,13 @@ pub enum Packet {
 	},
 }
 
-fn parse_variable(input: &mut &Bytes) -> MBResult<Packet> {
+fn parse_variable<'i, Input>(input: &mut Input) -> MBResult<Packet>
+where
+	Input: StreamIsPartial
+		+ Stream<Token = u8, Slice = &'i [u8]>
+		+ winnow::stream::Compare<u8>
+		+ Clone,
+{
 	let length = binary::u8
 		.context(StrContext::Label("length"))
 		.parse_next(input)?;
@@ -145,7 +154,7 @@ fn parse_variable(input: &mut &Bytes) -> MBResult<Packet> {
 		Control::parse
 			.context(StrContext::Label("control byte"))
 			.with_taken()
-			.map(|(control, raw_slice)| (control, raw_slice[0])),
+			.map(|(control, raw_slice): (_, &'i [u8])| (control, raw_slice[0])),
 		binary::u8.context(StrContext::Label("address byte")),
 	)
 		.parse_next(input)?;
@@ -183,13 +192,19 @@ fn parse_variable(input: &mut &Bytes) -> MBResult<Packet> {
 	})
 }
 
-fn parse_fixed(input: &mut &Bytes) -> MBResult<Packet> {
+fn parse_fixed<'i, Input>(input: &mut Input) -> MBResult<Packet>
+where
+	Input: StreamIsPartial
+		+ Stream<Token = u8, Slice = &'i [u8]>
+		+ winnow::stream::Compare<u8>
+		+ Clone,
+{
 	// mbus's fixed length datagrams are 2 bytes long, only control & address
 	let ((control, raw_control), address, checksum, _) = (
 		Control::parse
 			.context(StrContext::Label("control byte"))
 			.with_taken()
-			.map(|(control, raw_slice)| (control, raw_slice[0])),
+			.map(|(control, raw_slice): (_, &'i [u8])| (control, raw_slice[0])),
 		binary::u8.context(StrContext::Label("address byte")),
 		binary::u8.context(StrContext::Label("checksum")),
 		FRAME_TAIL.void().context(StrContext::Label("frame tail")),
@@ -208,12 +223,14 @@ fn parse_fixed(input: &mut &Bytes) -> MBResult<Packet> {
 	Ok(Packet::Short { control, address })
 }
 
-fn parse_ack(_input: &mut &Bytes) -> MBResult<Packet> {
-	Ok(Packet::Ack)
-}
-
 impl Packet {
-	pub fn parse(input: &mut &Bytes) -> MBResult<Packet> {
+	pub fn parse<'i, Input>(input: &mut Input) -> MBResult<Packet>
+	where
+		Input: StreamIsPartial
+			+ Stream<Token = u8, Slice = &'i [u8]>
+			+ winnow::stream::Compare<u8>
+			+ Clone,
+	{
 		alt((
 			preceded(
 				LONG_FRAME_HEADER.void(),
@@ -223,7 +240,7 @@ impl Packet {
 				SHORT_FRAME_HEADER.void(),
 				cut_err(parse_fixed.context(StrContext::Label("short frame header"))),
 			),
-			preceded(ACK_FRAME.void(), cut_err(parse_ack)),
+			cut_err(ACK_FRAME.void().map(|_| Packet::Ack)),
 		))
 		.parse_next(input)
 	}
