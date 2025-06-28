@@ -2,10 +2,10 @@
 // Licensed under the EUPL-1.2
 
 use winnow::binary;
-use winnow::combinator::repeat;
-use winnow::error::{AddContext, ParserError, StrContext};
+use winnow::combinator::{peek, repeat};
+use winnow::error::{ParserError, StrContext};
 use winnow::prelude::*;
-use winnow::stream::Stream;
+use winnow::token::take;
 use winnow::Bytes;
 
 use crate::parse::error::{MBResult, MBusError};
@@ -60,7 +60,9 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 		Ok(if neg { -result } else { result })
 	};
 
-	binary::bits::bits(parser).context(StrContext::Label("signed BCD number"))
+	(peek(take(bytes)).void(), binary::bits::bits(parser))
+		.map(|(_, n)| n)
+		.context(StrContext::Label("signed BCD number"))
 }
 
 #[cfg(test)]
@@ -146,7 +148,7 @@ mod test_parse_bcd {
 	#[test]
 	#[should_panic(expected = "cannot safely parse more than 9 bytes")]
 	fn test_parse_ten() {
-		let input = Bytes::new(&[]);
+		let input = Bytes::new(&[0; 10]);
 
 		let _ = parse_bcd(10).parse(input);
 	}
@@ -159,7 +161,7 @@ mod test_parse_bcd {
 
 		let ctx = result.inner().context().next().unwrap().to_string();
 
-		assert_eq!(ctx, "invalid initial bytes");
+		assert_eq!(ctx, "invalid signed BCD number");
 	}
 
 	#[test]
@@ -170,7 +172,7 @@ mod test_parse_bcd {
 
 		let ctx = result.inner().context().next().unwrap().to_string();
 
-		assert_eq!(ctx, "invalid final byte");
+		assert_eq!(ctx, "invalid signed BCD number");
 	}
 
 	#[test]
@@ -345,28 +347,24 @@ pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBus
 			8 => binary::le_i64.parse_next(input),
 			// todo
 			n if n > 8 => Err(MBusError::assert(input, "cannot parse more than 8 bytes")),
-			n => {
-				if input.len() < n {
-					return Err(MBusError::from_input(input).add_context(
-						input,
-						&input.checkpoint(),
-						StrContext::Label(match n {
-							3 => "24-bit signed number",
-							5 => "40-bit signed number",
-							6 => "48-bit signed number",
-							7 => "56-bit signed number",
-							_ => unreachable!(),
-						}),
-					));
-				}
-				let offset = 8 - n;
-				let mut data = [0; 8];
-				for (i, byte) in input.next_slice(n).iter().enumerate() {
-					data[i + offset] = *byte;
-				}
-				let res = i64::from_le_bytes(data);
-				Ok(res >> (offset * 8))
-			}
+			n => take(n)
+				.context(StrContext::Label(match n {
+					3 => "24-bit signed number",
+					5 => "40-bit signed number",
+					6 => "48-bit signed number",
+					7 => "56-bit signed number",
+					_ => unreachable!(),
+				}))
+				.map(|raw_bytes: &[u8]| {
+					let offset = 8 - n;
+					let mut data = [0; 8];
+					for (i, byte) in raw_bytes.iter().enumerate() {
+						data[i + offset] = *byte;
+					}
+					let res = i64::from_le_bytes(data);
+					res >> (offset * 8)
+				})
+				.parse_next(input),
 		}
 	}
 }
@@ -506,26 +504,22 @@ pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl Parser<&'a Bytes, u64, MB
 			8 => binary::le_u64.parse_next(input),
 			// todo
 			n if n > 8 => Err(MBusError::assert(input, "cannot parse more than 8 bytes")),
-			n => {
-				if input.len() < n {
-					return Err(MBusError::from_input(input).add_context(
-						input,
-						&input.checkpoint(),
-						StrContext::Label(match n {
-							3 => "24-bit unsigned number",
-							5 => "40-bit unsigned number",
-							6 => "48-bit unsigned number",
-							7 => "56-bit unsigned number",
-							_ => unreachable!(),
-						}),
-					));
-				}
-				let mut data = [0; 8];
-				for (i, byte) in input.next_slice(n).iter().enumerate() {
-					data[i] = *byte;
-				}
-				Ok(u64::from_le_bytes(data))
-			}
+			n => take(n)
+				.context(StrContext::Label(match n {
+					3 => "24-bit unsigned number",
+					5 => "40-bit unsigned number",
+					6 => "48-bit unsigned number",
+					7 => "56-bit unsigned number",
+					_ => unreachable!(),
+				}))
+				.map(|raw_bytes: &[u8]| {
+					let mut data = [0; 8];
+					for (i, byte) in raw_bytes.iter().enumerate() {
+						data[i] = *byte;
+					}
+					u64::from_le_bytes(data)
+				})
+				.parse_next(input),
 		}
 	}
 }
