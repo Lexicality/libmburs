@@ -6,14 +6,13 @@ use winnow::error::{
 	AddContext, ContextError, ErrorConvert, FromExternalError, ParserError, StrContext,
 };
 use winnow::stream::Stream;
-use winnow::ModalResult;
 
 /// This is a now completely unnessary wrapper than I need to work out a smart way of replacing
 #[allow(deprecated)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct MBusError(ContextError<StrContext>);
 
-pub type MBResult<O> = ModalResult<O, MBusError>;
+pub type MBResult<O> = Result<O, MBusError>;
 
 impl MBusError {
 	pub fn new() -> Self {

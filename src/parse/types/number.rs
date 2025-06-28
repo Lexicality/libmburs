@@ -3,7 +3,7 @@
 
 use winnow::binary;
 use winnow::combinator::repeat;
-use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
+use winnow::error::{AddContext, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
 use winnow::Bytes;
@@ -20,12 +20,12 @@ fn parse_bcd_nibble(input: &mut BitsInput<'_>) -> MBResult<i64> {
 	parse_nibble.verify(|v| *v < 10).parse_next(input)
 }
 
-pub fn parse_bcd<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, i64, MBusError> {
+pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 	let parser = move |input: &mut BitsInput<'a>| {
 		if bytes == 0 {
 			return Ok(0);
 		} else if bytes > 9 {
-			return Err(ErrMode::assert(
+			return Err(MBusError::assert(
 				input,
 				"cannot safely parse more than 9 bytes",
 			));
@@ -202,10 +202,10 @@ fn parse_hex_nibble(input: &mut BitsInput<'_>) -> MBResult<char> {
 		.parse_next(input)
 }
 
-pub fn parse_invalid_bcd<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, String, MBusError> {
+pub fn parse_invalid_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, String, MBusError> {
 	let parser = move |input: &mut BitsInput<'a>| {
 		if bytes == 0 {
-			return Ok::<_, ErrMode<MBusError>>("".to_owned());
+			return Ok::<_, MBusError>("".to_owned());
 		}
 		let mut initial_bytes: Vec<(char, char)> =
 			repeat(bytes - 1, (parse_hex_nibble, parse_hex_nibble))
@@ -335,7 +335,7 @@ mod test_parse_invalid_bcd {
 	}
 }
 
-pub fn parse_binary_signed<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, i64, MBusError> {
+pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 	move |input: &mut &'a Bytes| {
 		match bytes {
 			0 => Ok(0),
@@ -344,10 +344,10 @@ pub fn parse_binary_signed<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, i64,
 			4 => binary::le_i32.map(|i| i.into()).parse_next(input),
 			8 => binary::le_i64.parse_next(input),
 			// todo
-			n if n > 8 => Err(ErrMode::assert(input, "cannot parse more than 8 bytes")),
+			n if n > 8 => Err(MBusError::assert(input, "cannot parse more than 8 bytes")),
 			n => {
 				if input.len() < n {
-					return Err(ErrMode::from_input(input).add_context(
+					return Err(MBusError::from_input(input).add_context(
 						input,
 						&input.checkpoint(),
 						StrContext::Label(match n {
@@ -496,7 +496,7 @@ mod test_parse_binary_signed {
 	}
 }
 
-pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, u64, MBusError> {
+pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl Parser<&'a Bytes, u64, MBusError> {
 	move |input: &mut &'a Bytes| {
 		match bytes {
 			0 => Ok(0),
@@ -505,10 +505,10 @@ pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl ModalParser<&'a Bytes, u6
 			4 => binary::le_u32.map(|i| i.into()).parse_next(input),
 			8 => binary::le_u64.parse_next(input),
 			// todo
-			n if n > 8 => Err(ErrMode::assert(input, "cannot parse more than 8 bytes")),
+			n if n > 8 => Err(MBusError::assert(input, "cannot parse more than 8 bytes")),
 			n => {
 				if input.len() < n {
-					return Err(ErrMode::from_input(input).add_context(
+					return Err(MBusError::from_input(input).add_context(
 						input,
 						&input.checkpoint(),
 						StrContext::Label(match n {

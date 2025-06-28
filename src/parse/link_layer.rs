@@ -10,7 +10,7 @@ use winnow::stream::{Stream, StreamIsPartial};
 use winnow::token::take;
 use winnow::Bytes;
 
-use super::error::{MBResult, MBusError};
+use super::error::MBusError;
 use super::transport_layer::MBusMessage;
 
 const LONG_FRAME_HEADER: u8 = 0x68;
@@ -61,7 +61,7 @@ pub enum Control {
 }
 
 impl Control {
-	fn parse<Input>(input: &mut Input) -> MBResult<Self>
+	fn parse<Input>(input: &mut Input) -> ModalResult<Self, MBusError>
 	where
 		Input: StreamIsPartial + Stream<Token = u8> + Clone,
 	{
@@ -131,7 +131,7 @@ pub enum Packet {
 	},
 }
 
-fn parse_variable<'i, Input>(input: &mut Input) -> MBResult<Packet>
+fn parse_variable<'i, Input>(input: &mut Input) -> ModalResult<Packet, MBusError>
 where
 	Input: StreamIsPartial
 		+ Stream<Token = u8, Slice = &'i [u8]>
@@ -183,7 +183,9 @@ where
 
 	let mut data = Bytes::new(data);
 
-	let message = MBusMessage::parse.parse_next(&mut data)?;
+	let message = MBusMessage::parse
+		.parse_next(&mut data)
+		.map_err(ErrMode::Cut)?;
 
 	Ok(Packet::Long {
 		control,
@@ -192,7 +194,7 @@ where
 	})
 }
 
-fn parse_fixed<'i, Input>(input: &mut Input) -> MBResult<Packet>
+fn parse_fixed<'i, Input>(input: &mut Input) -> ModalResult<Packet, MBusError>
 where
 	Input: StreamIsPartial
 		+ Stream<Token = u8, Slice = &'i [u8]>
@@ -224,7 +226,7 @@ where
 }
 
 impl Packet {
-	pub fn parse<'i, Input>(input: &mut Input) -> MBResult<Packet>
+	pub fn parse<'i, Input>(input: &mut Input) -> ModalResult<Packet, MBusError>
 	where
 		Input: StreamIsPartial
 			+ Stream<Token = u8, Slice = &'i [u8]>

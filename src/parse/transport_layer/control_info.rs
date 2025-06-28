@@ -2,14 +2,14 @@
 // Licensed under the EUPL-1.2
 use winnow::binary;
 use winnow::combinator::repeat;
-use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
+use winnow::error::{AddContext, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
 use winnow::Bytes;
 
 use crate::parse::application_layer::application::{ApplicationErrorMessage, ApplicationMessage};
 use crate::parse::application_layer::frame::Frame;
-use crate::parse::error::MBResult;
+use crate::parse::error::{MBResult, MBusError};
 
 use super::header::LongHeader;
 use super::header::ShortHeader;
@@ -107,7 +107,7 @@ impl MBusMessage {
 				.context(StrContext::Label("long header"))
 				.parse_next(input)?,
 			_ => {
-				return Err(ErrMode::from_input(input).add_context(
+				return Err(MBusError::from_input(input).add_context(
 					input,
 					&ci_checkpoint,
 					StrContext::Label("reserved CI field"),

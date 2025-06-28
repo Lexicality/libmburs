@@ -2,10 +2,10 @@
 // Licensed under the EUPL-1.2
 #![allow(dead_code)]
 
-use crate::parse::error::MBResult;
+use crate::parse::error::{MBResult, MBusError};
 use crate::parse::types::BitsInput;
 use winnow::binary::bits;
-use winnow::error::{ErrMode, ParserError, StrContext};
+use winnow::error::{ParserError, StrContext};
 use winnow::Parser;
 
 #[derive(Debug, Clone, Copy)]
@@ -95,7 +95,7 @@ impl DataInfoBlock {
 		let mut i = 1;
 		while extension {
 			if i > 10 {
-				return Err(ErrMode::assert(input, "Packet has more than 10 DIFEs!"));
+				return Err(MBusError::assert(input, "Packet has more than 10 DIFEs!"));
 			}
 
 			let mut dife_device: u16;

@@ -21,7 +21,7 @@ fn convert_ascii_string(data: &[u8]) -> core::result::Result<String, std::str::U
 	Ok(std::str::from_utf8(data)?.chars().rev().collect())
 }
 
-pub fn parse_latin1<'a>(num_bytes: usize) -> impl ModalParser<&'a Bytes, String, MBusError> {
+pub fn parse_latin1<'a>(num_bytes: usize) -> impl Parser<&'a Bytes, String, MBusError> {
 	move |input: &mut &'a Bytes| {
 		if num_bytes == 0 {
 			Ok("".to_owned())
