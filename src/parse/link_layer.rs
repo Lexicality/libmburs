@@ -3,7 +3,7 @@
 
 use winnow::binary;
 use winnow::binary::bits;
-use winnow::combinator::{alt, cut_err, preceded};
+use winnow::combinator::{alt, cut_err, eof, preceded};
 use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::{Stream, StreamIsPartial};
@@ -150,6 +150,7 @@ where
 		.void()
 		.context(StrContext::Label("frame marker"))
 		.parse_next(input)?;
+
 	let ((control, raw_control), address) = (
 		Control::parse
 			.context(StrContext::Label("control byte"))
@@ -158,10 +159,14 @@ where
 		binary::u8.context(StrContext::Label("address byte")),
 	)
 		.parse_next(input)?;
-	let (data, checksum, _) = (
-		take(length).context(StrContext::Label("packet data")),
+
+	let (data, checksum, _, _) = (
+		// NOTE: The `length` includes the `control` and `address` bytes parsed above as well as
+		// the actual packet data, so we need to knock 2 bytes off the data length.
+		take(length - 2).context(StrContext::Label("packet data")),
 		binary::u8.context(StrContext::Label("checksum")),
 		FRAME_TAIL.void().context(StrContext::Label("frame tail")),
+		eof.void(),
 	)
 		.parse_next(input)?;
 
