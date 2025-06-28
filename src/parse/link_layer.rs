@@ -7,6 +7,7 @@ use winnow::combinator::{alt, cut_err, preceded};
 use winnow::error::{AddContext, ErrMode, ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::stream::Stream;
+use winnow::token::take;
 use winnow::Bytes;
 
 use super::error::{MBResult, MBusError};
@@ -148,17 +149,8 @@ fn parse_variable(input: &mut &Bytes) -> MBResult<Packet> {
 		binary::u8.context(StrContext::Label("address byte")),
 	)
 		.parse_next(input)?;
-	let length = length.into();
-	// There are two bytes after the input
-	if input.len() < length {
-		return Err(ErrMode::from_input(input).add_context(
-			input,
-			&input.checkpoint(),
-			StrContext::Label("packet data"),
-		));
-	}
-	let data = input.next_slice(length - 2);
-	let (checksum, _) = (
+	let (data, checksum, _) = (
+		take(length).context(StrContext::Label("packet data")),
 		binary::u8.context(StrContext::Label("checksum")),
 		FRAME_TAIL.void().context(StrContext::Label("frame tail")),
 	)
