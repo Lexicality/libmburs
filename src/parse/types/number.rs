@@ -8,7 +8,7 @@ use winnow::prelude::*;
 use winnow::token::take;
 use winnow::Bytes;
 
-use crate::parse::error::{MBResult, MBusError};
+use crate::parse::error::{MBResult, MBusContext, MBusError};
 
 use super::BitsInput;
 
@@ -62,7 +62,12 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 
 	(peek(take(bytes)).void(), binary::bits::bits(parser))
 		.map(|(_, n)| n)
-		.context(StrContext::Label("signed BCD number"))
+		.context_with(move || {
+			[MBusContext::ComputedLabel(format!(
+				"signed {bytes} byte BCD number"
+			))]
+			.into_iter()
+		})
 }
 
 #[cfg(test)]
@@ -161,7 +166,7 @@ mod test_parse_bcd {
 
 		let ctx = result.inner().context().next().unwrap().to_string();
 
-		assert_eq!(ctx, "invalid signed BCD number");
+		assert_eq!(ctx, "invalid signed 3 byte BCD number");
 	}
 
 	#[test]
@@ -172,7 +177,7 @@ mod test_parse_bcd {
 
 		let ctx = result.inner().context().next().unwrap().to_string();
 
-		assert_eq!(ctx, "invalid signed BCD number");
+		assert_eq!(ctx, "invalid signed 2 byte BCD number");
 	}
 
 	#[test]

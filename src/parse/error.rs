@@ -62,7 +62,9 @@ impl std::fmt::Display for MBusError {
 		let mut level = 0;
 		for context in ctx.context() {
 			match context {
-				MBusContext::Label(_) | MBusContext::Assertion(_) => {
+				MBusContext::Label(_)
+				| MBusContext::ComputedLabel(_)
+				| MBusContext::Assertion(_) => {
 					if first {
 						first = false;
 					} else {
@@ -138,6 +140,8 @@ impl ErrorConvert<MBusError> for ContextError<MBusContext> {
 pub enum MBusContext {
 	/// Description of what is currently being parsed
 	Label(&'static str),
+	/// Computed description of what is currently being parsed
+	ComputedLabel(String),
 	/// Grammar item that was expected
 	Expected(StrContextValue),
 	/// Failed assertion
@@ -148,6 +152,7 @@ impl std::fmt::Display for MBusContext {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Self::Label(name) => write!(f, "invalid {name}"),
+			Self::ComputedLabel(name) => write!(f, "invalid {name}"),
 			Self::Expected(value) => write!(f, "expected {value}"),
 			Self::Assertion(text) => write!(f, "assertion failed: {text}"),
 		}
