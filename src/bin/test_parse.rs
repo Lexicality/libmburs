@@ -3,7 +3,7 @@
 use winnow::{Bytes, Parser};
 
 use libmbus::parse::link_layer::Packet;
-use libmbus::utils::{fancy_error, read_test_file};
+use libmbus::utils::read_test_file;
 
 fn main() {
 	for fname in std::env::args().skip(1) {
@@ -15,7 +15,7 @@ fn main() {
 
 		match packet {
 			Ok(packet) => println!("{packet:#?}"),
-			Err(e) => fancy_error(&e.into_inner()),
+			Err(e) => eprintln!("{}", e.into_inner()),
 		}
 	}
 }

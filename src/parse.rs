@@ -15,7 +15,6 @@ mod test_parse {
 
 	use crate::parse::error::MBusError;
 	use crate::parse::link_layer::Packet;
-	use crate::utils::fancy_error;
 	use crate::utils::read_test_file;
 
 	#[rstest]
@@ -107,8 +106,7 @@ mod test_parse {
 			Ok(_) => Ok(()),
 			Err(e) => {
 				let e = e.into_inner();
-				eprint!("{filename} failed: ");
-				fancy_error(&e);
+				eprint!("{filename} failed: {e}");
 				Err(e)
 			}
 		}

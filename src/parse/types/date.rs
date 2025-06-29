@@ -125,9 +125,10 @@ impl TypeFDateTime {
 #[cfg(test)]
 mod test_type_f_date_time {
 	use rstest::rstest;
-	use winnow::error::StrContext;
 	use winnow::prelude::*;
 	use winnow::Bytes;
+
+	use crate::parse::error::MBusContext;
 
 	use super::TypeFDateTime;
 
@@ -183,7 +184,7 @@ mod test_type_f_date_time {
 		let result = TypeFDateTime::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
+		assert_eq!(err.context().next(), Some(&MBusContext::Label(context)));
 	}
 }
 
@@ -205,9 +206,10 @@ impl TypeGDate {
 #[cfg(test)]
 mod test_type_g_date {
 	use rstest::rstest;
-	use winnow::error::StrContext;
 	use winnow::prelude::*;
 	use winnow::Bytes;
+
+	use crate::parse::error::MBusContext;
 
 	use super::TypeGDate;
 
@@ -245,7 +247,7 @@ mod test_type_g_date {
 		let err = result.inner();
 		assert_eq!(
 			err.context().next(),
-			Some(&StrContext::Label("invalid check"))
+			Some(&MBusContext::Label("invalid check"))
 		);
 	}
 
@@ -260,7 +262,7 @@ mod test_type_g_date {
 		let result = TypeGDate::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
+		assert_eq!(err.context().next(), Some(&MBusContext::Label(context)));
 	}
 }
 
@@ -386,9 +388,10 @@ impl TypeJTime {
 #[cfg(test)]
 mod test_type_j_time {
 	use rstest::rstest;
-	use winnow::error::StrContext;
 	use winnow::prelude::*;
 	use winnow::Bytes;
+
+	use crate::parse::error::MBusContext;
 
 	use super::TypeJTime;
 	#[rstest]
@@ -424,7 +427,7 @@ mod test_type_j_time {
 		let result = TypeJTime::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.context().next(), Some(&StrContext::Label("padding")));
+		assert_eq!(err.context().next(), Some(&MBusContext::Label("padding")));
 	}
 
 	#[rstest]
@@ -438,7 +441,7 @@ mod test_type_j_time {
 		let result = TypeJTime::parse.parse(input).unwrap_err();
 
 		let err = result.inner();
-		assert_eq!(err.context().next(), Some(&StrContext::Label(context)));
+		assert_eq!(err.context().next(), Some(&MBusContext::Label(context)));
 	}
 }
 
