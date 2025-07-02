@@ -1,8 +1,10 @@
 // Copyright 2023 Lexi Robinson
 // Licensed under the EUPL-1.2
 
+use core::iter::IntoIterator;
+
 use winnow::binary;
-use winnow::combinator::{peek, repeat};
+use winnow::combinator::{alt, peek, repeat};
 use winnow::error::{ParserError, StrContext};
 use winnow::prelude::*;
 use winnow::token::take;
@@ -17,7 +19,10 @@ fn parse_nibble(input: &mut BitsInput<'_>) -> MBResult<i64> {
 }
 
 fn parse_bcd_nibble(input: &mut BitsInput<'_>) -> MBResult<i64> {
-	parse_nibble.verify(|v| *v < 10).parse_next(input)
+	parse_nibble
+		.verify(|v| *v < 10)
+		.context(MBusContext::Label("BCD nibble"))
+		.parse_next(input)
 }
 
 pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
@@ -39,7 +44,7 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 
 		// last byte
 		let (mut high, low) = (
-			parse_nibble.verify(|v| *v == 0x0F || *v < 10),
+			alt((parse_nibble.verify(|v| *v == 0x0F), parse_bcd_nibble)),
 			parse_bcd_nibble,
 		)
 			.context(StrContext::Label("final byte"))
@@ -72,6 +77,7 @@ pub fn parse_bcd<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
 
 #[cfg(test)]
 mod test_parse_bcd {
+	use rstest::rstest;
 	use winnow::{Bytes, Parser};
 
 	use super::parse_bcd;
@@ -180,26 +186,38 @@ mod test_parse_bcd {
 		assert_eq!(ctx, "invalid signed 2 byte BCD number");
 	}
 
-	#[test]
-	fn test_parse_garbage() {
-		for byte in [
-			[0xAA],
-			[0xBB],
-			[0xCC],
-			[0xDD],
-			[0xEE],
-			[0xFF],
-			// 0xF0 is valid but 0x0F is not
-			[0x0F],
-		] {
-			let input = Bytes::new(&byte);
+	#[rstest]
+	#[case(&[0xAA], 1)]
+	#[case(&[0xBB], 1)]
+	#[case(&[0xCC], 1)]
+	#[case(&[0xDD], 1)]
+	#[case(&[0xEE], 1)]
+	#[case(&[0xFF], 1)]
+	// 0xF0 is valid but 0x0F is not
+	#[case(&[0x0F], 1)]
+	#[case(&[0xAA, 0x00], 2)]
+	#[case(&[0xBB, 0x00], 2)]
+	#[case(&[0xCC, 0x00], 2)]
+	#[case(&[0xDD, 0x00], 2)]
+	#[case(&[0xEE, 0x00], 2)]
+	#[case(&[0xFF, 0x00], 2)]
+	#[case(&[0x0F, 0x00], 2)]
+	// 0xF0 is only valid in the last byte
+	#[case(&[0xF0, 0x00], 2)]
+	#[case(&[0x00, 0xAA], 2)]
+	#[case(&[0x00, 0xBB], 2)]
+	#[case(&[0x00, 0xCC], 2)]
+	#[case(&[0x00, 0xDD], 2)]
+	#[case(&[0x00, 0xEE], 2)]
+	#[case(&[0x00, 0xFF], 2)]
+	fn test_parse_garbage(#[case] bytes: &'static [u8], #[case] byte_count: usize) {
+		let input = Bytes::new(bytes);
 
-			let result = parse_bcd(1).parse(input).unwrap_err();
+		let result = parse_bcd(byte_count).parse(input).unwrap_err();
 
-			let ctx = result.inner().context().next().unwrap().to_string();
+		let ctx = result.inner().context().next().unwrap().to_string();
 
-			assert_eq!(ctx, "invalid final byte");
-		}
+		assert_eq!(ctx, "invalid BCD nibble");
 	}
 }
 
@@ -343,23 +361,17 @@ mod test_parse_invalid_bcd {
 }
 
 pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBusError> {
-	move |input: &mut &'a Bytes| {
+	(move |input: &mut &'a Bytes| {
+		if bytes > 8 {
+			return Err(MBusError::assert(input, "cannot parse more than 8 bytes"));
+		}
 		match bytes {
 			0 => Ok(0),
 			1 => binary::i8.map(|i| i.into()).parse_next(input),
 			2 => binary::le_i16.map(|i| i.into()).parse_next(input),
 			4 => binary::le_i32.map(|i| i.into()).parse_next(input),
 			8 => binary::le_i64.parse_next(input),
-			// todo
-			n if n > 8 => Err(MBusError::assert(input, "cannot parse more than 8 bytes")),
 			n => take(n)
-				.context(StrContext::Label(match n {
-					3 => "24-bit signed number",
-					5 => "40-bit signed number",
-					6 => "48-bit signed number",
-					7 => "56-bit signed number",
-					_ => unreachable!(),
-				}))
 				.map(|raw_bytes: &[u8]| {
 					let offset = 8 - n;
 					let mut data = [0; 8];
@@ -371,7 +383,14 @@ pub fn parse_binary_signed<'a>(bytes: usize) -> impl Parser<&'a Bytes, i64, MBus
 				})
 				.parse_next(input),
 		}
-	}
+	})
+	.context_with(move || {
+		[MBusContext::ComputedLabel(format!(
+			"{} bit signed number",
+			bytes * 8
+		))]
+		.into_iter()
+	})
 }
 
 #[cfg(test)]
@@ -490,33 +509,40 @@ mod test_parse_binary_signed {
 	}
 
 	#[test]
-	fn test_parse_not_enough_data() {
+	fn test_parse_not_enough_data_1() {
 		let input = Bytes::new(&[0x12]);
 
-		let result = parse_binary_signed(2).parse(input);
-		// TODO: there's no context on this error
-		assert!(result.is_err());
+		let result = parse_binary_signed(2).parse(input).unwrap_err();
+
+		let ctx = result.inner().context().next().unwrap().to_string();
+
+		assert_eq!(ctx, "invalid 16 bit signed number");
+	}
+
+	#[test]
+	fn test_parse_not_enough_data_2() {
+		let input = Bytes::new(&[0x12]);
+
+		let result = parse_binary_signed(3).parse(input).unwrap_err();
+
+		let ctx = result.inner().context().next().unwrap().to_string();
+
+		assert_eq!(ctx, "invalid 24 bit signed number");
 	}
 }
 
 pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl Parser<&'a Bytes, u64, MBusError> {
-	move |input: &mut &'a Bytes| {
+	(move |input: &mut &'a Bytes| {
+		if bytes > 8 {
+			return Err(MBusError::assert(input, "cannot parse more than 8 bytes"));
+		}
 		match bytes {
 			0 => Ok(0),
 			1 => binary::u8.map(|i| i.into()).parse_next(input),
 			2 => binary::le_u16.map(|i| i.into()).parse_next(input),
 			4 => binary::le_u32.map(|i| i.into()).parse_next(input),
 			8 => binary::le_u64.parse_next(input),
-			// todo
-			n if n > 8 => Err(MBusError::assert(input, "cannot parse more than 8 bytes")),
 			n => take(n)
-				.context(StrContext::Label(match n {
-					3 => "24-bit unsigned number",
-					5 => "40-bit unsigned number",
-					6 => "48-bit unsigned number",
-					7 => "56-bit unsigned number",
-					_ => unreachable!(),
-				}))
 				.map(|raw_bytes: &[u8]| {
 					let mut data = [0; 8];
 					for (i, byte) in raw_bytes.iter().enumerate() {
@@ -526,7 +552,14 @@ pub fn parse_binary_unsigned<'a>(bytes: usize) -> impl Parser<&'a Bytes, u64, MB
 				})
 				.parse_next(input),
 		}
-	}
+	})
+	.context_with(move || {
+		[MBusContext::ComputedLabel(format!(
+			"{} bit unsigned number",
+			bytes * 8
+		))]
+		.into_iter()
+	})
 }
 
 #[cfg(test)]
@@ -625,12 +658,25 @@ mod test_parse_binary_unsigned {
 	}
 
 	#[test]
-	fn test_parse_not_enough_data() {
+	fn test_parse_not_enough_data_1() {
 		let input = Bytes::new(&[0x12]);
 
-		let result = parse_binary_unsigned(2).parse(input);
-		// TODO: there's no context on this error
-		assert!(result.is_err());
+		let result = parse_binary_unsigned(2).parse(input).unwrap_err();
+
+		let ctx = result.inner().context().next().unwrap().to_string();
+
+		assert_eq!(ctx, "invalid 16 bit unsigned number");
+	}
+
+	#[test]
+	fn test_parse_not_enough_data_2() {
+		let input = Bytes::new(&[0x12]);
+
+		let result = parse_binary_unsigned(3).parse(input).unwrap_err();
+
+		let ctx = result.inner().context().next().unwrap().to_string();
+
+		assert_eq!(ctx, "invalid 24 bit unsigned number");
 	}
 }
 
